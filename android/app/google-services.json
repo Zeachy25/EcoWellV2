@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "361442831596",
+    "project_id": "ecowell-aar",
+    "storage_bucket": "ecowell-aar.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:361442831596:android:ae6f2ca206316ffba349c9",
+        "android_client_info": {
+          "package_name": "com.ecowell.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "361442831596-6nl11of32o5335kr6aloblmlf30727tk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcGcvdPvAtDKni-SV9FIS7jg-wxxRVQl8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "361442831596-6nl11of32o5335kr6aloblmlf30727tk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
