@@ -7,6 +7,9 @@ import '../../models/walk_record.dart';
 /// Stateful GPS activity tracker responsible for distance, pace, splits,
 /// elevation, calorie, and arrival detection while recording a walk/run.
 class WalkTracker {
+  static const double _minMoveSpeedMps = 0.5;
+  static const double _minSegmentMeters = 2.0;
+
   GreenSpace? _destination;
   WalkActivityType _activityType = WalkActivityType.walk;
   StreamSubscription<GeoPoint>? _subscription;
@@ -88,10 +91,7 @@ class WalkTracker {
       _onFix(initial);
     }
 
-    _subscription = positionStream.listen(
-      _onFix,
-      onError: (Object _) {},
-    );
+    _subscription = positionStream.listen(_onFix, onError: (Object _) {});
 
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       onStatusChanged?.call();
@@ -99,23 +99,22 @@ class WalkTracker {
   }
 
   void _onFix(GeoPoint p) {
-    if (_disposed) return;
+    if (_disposed || _isPaused) return;
 
     final now = DateTime.now();
     final previous = _last;
 
     if (previous != null) {
-      final segKm = geo.distanceMeters(
-            previous.latitude,
-            previous.longitude,
-            p.latitude,
-            p.longitude,
-          ) /
-          1000;
+      final segMeters = geo.distanceMeters(
+        previous.latitude,
+        previous.longitude,
+        p.latitude,
+        p.longitude,
+      );
       final dt = now.difference(_lastFixAt!).inSeconds;
       if (dt > 0) {
-        final speedMps = (segKm * 1000) / dt;
-        final isMoving = speedMps >= 0.5;
+        final speedMps = segMeters / dt;
+        final isMoving = speedMps >= _minMoveSpeedMps;
         if (isMoving) {
           _movingStart ??= now;
         } else if (_movingStart != null) {
@@ -123,28 +122,31 @@ class WalkTracker {
           _movingStart = null;
         }
 
-        if (speedMps > 0.1) {
-          _currentPaceSecondsPerKm = (dt / segKm).round();
+        // Only count real movement: fast enough and clear of GPS noise.
+        if (isMoving && segMeters >= _minSegmentMeters) {
+          _distanceMeters += segMeters;
+          _currentPaceSecondsPerKm = (dt / (segMeters / 1000)).round();
+
+          final altDelta = p.altitude - previous.altitude;
+          if (altDelta > 0 && altDelta.isFinite) {
+            _elevationGainMeters += altDelta;
+          }
+
+          _path.add(p);
+          onPosition?.call(p);
+          _checkSplit(p, now);
         }
-      }
-
-      _distanceMeters += segKm * 1000;
-
-      final altDelta = p.altitude - previous.altitude;
-      if (altDelta > 0 && altDelta.isFinite) {
-        _elevationGainMeters += altDelta;
       }
     } else {
       _movingStart = now;
+      _path.add(p);
+      onPosition?.call(p);
     }
 
-    _path.add(p);
     _last = p;
     _lastFixAt = now;
 
-    onPosition?.call(p);
     _checkArrival(p);
-    _checkSplit(p, now);
 
     if (_disposed) return;
   }
@@ -219,6 +221,8 @@ class WalkTracker {
       _accumulatedMoving += DateTime.now().difference(_movingStart!);
       _movingStart = null;
     }
+    _last = null;
+    _lastFixAt = null;
     onStatusChanged?.call();
   }
 

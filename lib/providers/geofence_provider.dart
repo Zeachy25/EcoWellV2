@@ -3,17 +3,24 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../core/config/app_config.dart';
 import '../core/utils/geo.dart';
-import '../data/seed_data.dart';
 import '../models/green_space.dart';
+import 'app_providers.dart';
 
+/// Geofence monitoring state.
+///
+/// Geofenced areas are the developer-defined `GreenSpace` entries from
+/// [greenSpacesProvider] - each place has its own [GreenSpace.radiusMeters]
+/// geofence radius. This controller streams GPS fixes and detects when the
+/// user enters or exits a geofence circle.
 class GeofenceState {
+  final Position? position;
   final GreenSpace? insideSpace;
   final bool monitoring;
   final bool permissionDenied;
 
   const GeofenceState({
+    this.position,
     this.insideSpace,
     this.monitoring = false,
     this.permissionDenied = false,
@@ -53,6 +60,7 @@ class GeofenceController extends Notifier<GeofenceState> {
 
     state = GeofenceState(
       monitoring: true,
+      position: state.position,
       insideSpace: state.insideSpace,
     );
   }
@@ -66,7 +74,8 @@ class GeofenceController extends Notifier<GeofenceState> {
   void _updateInside(Position position) {
     GreenSpace? nearest;
     var minDistance = double.infinity;
-    for (final space in matiGreenSpaces) {
+    final spaces = ref.read(greenSpacesProvider);
+    for (final space in spaces) {
       final distance = distanceMeters(
         position.latitude,
         position.longitude,
@@ -78,14 +87,15 @@ class GeofenceController extends Notifier<GeofenceState> {
         nearest = space;
       }
     }
-    final inside =
-        nearest != null && minDistance <= AppConfig.geofenceRadiusMeters;
+    final inside = nearest != null && minDistance <= nearest.radiusMeters;
     state = GeofenceState(
+      position: position,
       insideSpace: inside ? nearest : null,
       monitoring: true,
     );
   }
 }
 
-final geofenceProvider =
-    NotifierProvider<GeofenceController, GeofenceState>(GeofenceController.new);
+final geofenceProvider = NotifierProvider<GeofenceController, GeofenceState>(
+  GeofenceController.new,
+);

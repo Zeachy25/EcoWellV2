@@ -1,19 +1,20 @@
+import '../core/config/app_config.dart';
 import 'place_review.dart';
 
 enum CrowdLevel { low, moderate, high }
 
 extension CrowdLevelLabel on CrowdLevel {
   String get label => switch (this) {
-        CrowdLevel.low => 'Low',
-        CrowdLevel.moderate => 'Moderate',
-        CrowdLevel.high => 'High',
-      };
+    CrowdLevel.low => 'Low',
+    CrowdLevel.moderate => 'Moderate',
+    CrowdLevel.high => 'High',
+  };
 
   int get value => switch (this) {
-        CrowdLevel.low => 5,
-        CrowdLevel.moderate => 3,
-        CrowdLevel.high => 1,
-      };
+    CrowdLevel.low => 5,
+    CrowdLevel.moderate => 3,
+    CrowdLevel.high => 1,
+  };
 }
 
 class GreenSpace {
@@ -34,6 +35,10 @@ class GreenSpace {
   final double? distanceKm;
   final List<String> tags;
 
+  /// The geofence size (meters) around this place. Enter/exit detection and
+  /// the map circle use this radius. Defaults to 150m when not specified.
+  final double radiusMeters;
+
   const GreenSpace({
     required this.id,
     required this.name,
@@ -51,6 +56,7 @@ class GreenSpace {
     this.destressTag,
     this.distanceKm,
     this.tags = const [],
+    this.radiusMeters = AppConfig.geofenceRadiusMeters,
   });
 
   double get quietScore {

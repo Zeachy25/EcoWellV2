@@ -5,6 +5,23 @@ import '../models/notification_item.dart';
 import '../models/place_review.dart';
 import '../models/story.dart';
 
+/// HOW DEVELOPERS ADD A NEW GEOFENCE / CALM PLACE
+/// -----------------------------------------------
+/// Geofence locations are defined here in code - only developers can add or
+/// remove them. App users have no UI or API to create geofences.
+///
+/// To add a new geofenced place:
+///   1. Copy an existing `GreenSpace(...)` below and change the values.
+///   2. Give it a unique `id` (e.g. 'gs-009').
+///   3. Set `name`, `category`, `address`, `latitude`, `longitude`.
+///   4. Set `radiusMeters:` - the geofence radius in meters. Omit it (or set
+///      150) for the default. Bigger areas (sanctuaries) can use a larger one.
+///   5. Fill description/tags/imageURL so the detail screen stays complete.
+///
+/// Once saved, the place automatically:
+///   * Appears on the Explore map with a geofence circle + marker.
+///   * Triggers arrival/departure prompts when a user enters/exits it.
+///   * Becomes selectable as a walk destination (geofence ring shown).
 final matiGreenSpaces = <GreenSpace>[
   GreenSpace(
     id: 'gs-001',
@@ -13,8 +30,9 @@ final matiGreenSpaces = <GreenSpace>[
         'A scenic mangrove boardwalk and park in Dahican, valued for coastal defense, habitat preservation, and calm nature walks.',
     category: 'Mangrove Park',
     address: 'Dahican, Mati City, Davao Oriental',
-    latitude: 6.9009,
-    longitude: 126.2685,
+    latitude: 6.918548614571494,
+    longitude: 126.25911889350941,
+    radiusMeters: 150,
     amenities: ['Boardwalk', 'Shaded paths', 'Photo spots', 'Bird Watching'],
     noiseLevel: CrowdLevel.low,
     crowdDensity: CrowdLevel.low,
@@ -56,6 +74,7 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'San Isidro / Mati Border, Davao Oriental',
     latitude: 6.7289,
     longitude: 126.1822,
+    radiusMeters: 300,
     amenities: ['Pygmy Forest', 'Fresh Air', 'Trekking', 'Biodiversity'],
     noiseLevel: CrowdLevel.low,
     crowdDensity: CrowdLevel.low,
@@ -90,6 +109,7 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'Pujada Bay, Mati City, Davao Oriental',
     latitude: 6.9390,
     longitude: 126.2750,
+    radiusMeters: 200,
     amenities: ['Panoramic view', 'Breezy', 'Photo spots'],
     noiseLevel: CrowdLevel.low,
     crowdDensity: CrowdLevel.low,
@@ -117,6 +137,7 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'Roxas Boulevard, Dahican, Mati City, Davao Oriental',
     latitude: 6.9091,
     longitude: 126.2657,
+    radiusMeters: 200,
     amenities: ['Open sand', 'Sunrise view', 'Breezy', 'Surf spots'],
     noiseLevel: CrowdLevel.moderate,
     crowdDensity: CrowdLevel.moderate,
@@ -151,6 +172,7 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'City Center, Mati City, Davao Oriental',
     latitude: 6.9532,
     longitude: 126.2157,
+    radiusMeters: 100,
     amenities: ['Open lawn', 'Seating', 'Easy access', 'Night lights'],
     noiseLevel: CrowdLevel.high,
     crowdDensity: CrowdLevel.moderate,
@@ -178,6 +200,7 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'Waniban, Mati City, Davao Oriental',
     latitude: 6.9386,
     longitude: 126.2911,
+    radiusMeters: 150,
     amenities: ['Secluded', 'Shaded', 'Calm waters'],
     noiseLevel: CrowdLevel.low,
     crowdDensity: CrowdLevel.low,
@@ -205,6 +228,7 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'Bobon, Mati City, Davao Oriental',
     latitude: 6.9997,
     longitude: 126.2604,
+    radiusMeters: 150,
     amenities: ['Open sand', 'Quiet', 'Nature view'],
     noiseLevel: CrowdLevel.low,
     crowdDensity: CrowdLevel.low,
@@ -232,6 +256,7 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'Mayo, Mati City, Davao Oriental',
     latitude: 6.9300,
     longitude: 126.2820,
+    radiusMeters: 150,
     amenities: ['Palm shade', 'Bay view', 'Open space'],
     noiseLevel: CrowdLevel.low,
     crowdDensity: CrowdLevel.moderate,
@@ -254,6 +279,48 @@ final matiGreenSpaces = <GreenSpace>[
         comment:
             'Great for walks. Shaded and benches to sit and enjoy the greenery.',
         date: DateTime(2026, 7, 28),
+      ),
+    ],
+  ),
+  GreenSpace(
+    id: 'gs-009',
+    name: 'Mini Forest',
+    description:
+        'A scenic mangrove boardwalk and park in Dahican, valued for coastal defense, habitat preservation, and calm nature walks.',
+    category: 'Mangrove Park',
+    address: 'Dahican, Mati City, Davao Oriental',
+    latitude: 6.932294,
+    longitude: 126.253893,
+    radiusMeters: 35,
+    amenities: ['Boardwalk', 'Shaded paths', 'Photo spots', 'Bird Watching'],
+    noiseLevel: CrowdLevel.low,
+    crowdDensity: CrowdLevel.low,
+    calmFactor: CrowdLevel.high,
+    imageUrl: 'assets/images/guang2.jpg',
+    destressTag: 'DESTRESS LEVEL: HIGH',
+    distanceKm: 1.2,
+    tags: ['Quiet Space', 'Nature Walk', 'Boardwalk'],
+    reviews: [
+      PlaceReview(
+        reviewerName: 'Maria J.',
+        rating: 4.8,
+        comment:
+            'The morning breeze here is unmatched. Perfect spot for my 7 AM meditation session. Not too crowded during weekdays.',
+        date: DateTime(2026, 8, 18),
+      ),
+      PlaceReview(
+        reviewerName: 'Ryan A.',
+        rating: 4.8,
+        comment:
+            'Great for walking! There are many shaded areas and benches to just sit and enjoy the greenery.',
+        date: DateTime(2026, 8, 14),
+      ),
+      PlaceReview(
+        reviewerName: 'Kim D.',
+        rating: 4.8,
+        comment:
+            'Incredible tranquility among the mangroves. My stress melted away completely.',
+        date: DateTime(2026, 8, 10),
       ),
     ],
   ),
@@ -341,7 +408,8 @@ final seedCommunityPosts = <CommunityPost>[
     locationAddress: 'Roxas Boulevard, Dahican, Mati City, 8200 Davao Oriental',
     rating: 4.5,
     imageUrl: 'assets/images/dahican_beach.jpg',
-    caption: 'Early morning meditation by the shoreline. The sound of waves instantly grounded my busy mind 🌊🍃',
+    caption:
+        'Early morning meditation by the shoreline. The sound of waves instantly grounded my busy mind 🌊🍃',
     likedByPreview: ['juan', 'Mike', '5sda'],
     likesCount: 134500,
     commentsCount: 100940,
@@ -359,7 +427,8 @@ final seedCommunityPosts = <CommunityPost>[
     locationAddress: 'Dahican, Mati City, 8200 Davao Oriental',
     rating: 4.8,
     imageUrl: 'assets/images/guang_guang_mangrove.jpg',
-    caption: 'Completed 15 minutes of box breathing under the mangrove canopy. Stress reduction score: +6! 🌿✨',
+    caption:
+        'Completed 15 minutes of box breathing under the mangrove canopy. Stress reduction score: +6! 🌿✨',
     likedByPreview: ['Arlene', 'Maria', 'Ryan'],
     likesCount: 89200,
     commentsCount: 4120,
@@ -377,7 +446,8 @@ final seedCommunityPosts = <CommunityPost>[
     locationAddress: 'City Center, Mati City, 8200 Davao Oriental',
     rating: 4.2,
     imageUrl: 'assets/images/freedom_park.jpg',
-    caption: 'Twilight walk after a long workday. Fresh breeze and glowing lanterns cleared my tension completely.',
+    caption:
+        'Twilight walk after a long workday. Fresh breeze and glowing lanterns cleared my tension completely.',
     likedByPreview: ['Kim', 'Leo', 'Angelo'],
     likesCount: 45300,
     commentsCount: 1820,
@@ -392,7 +462,8 @@ final seedNotifications = <NotificationItem>[
   NotificationItem(
     id: 'notif-1',
     title: '🌿 Time for your Mindful Walk!',
-    description: 'The weather in Mati City is partly cloudy (28°C) — ideal conditions for Guang-guang Mangrove Park.',
+    description:
+        'The weather in Mati City is partly cloudy (28°C) — ideal conditions for Guang-guang Mangrove Park.',
     category: NotificationCategory.reminder,
     timestamp: DateTime.now().subtract(const Duration(minutes: 25)),
     isRead: false,
@@ -401,7 +472,8 @@ final seedNotifications = <NotificationItem>[
   NotificationItem(
     id: 'notif-2',
     title: '🔥 5-Day Streak Active!',
-    description: 'You\'ve logged nature wellness visits 5 days in a row! Keep going to earn your Mindfulness Badge.',
+    description:
+        'You\'ve logged nature wellness visits 5 days in a row! Keep going to earn your Mindfulness Badge.',
     category: NotificationCategory.reminder,
     timestamp: DateTime.now().subtract(const Duration(hours: 3)),
     isRead: false,
@@ -410,7 +482,8 @@ final seedNotifications = <NotificationItem>[
   NotificationItem(
     id: 'notif-3',
     title: '❤️ Rain Heart liked your visit post',
-    description: 'Rain Heart and 42 others liked your recent reflection at Dahican Beach.',
+    description:
+        'Rain Heart and 42 others liked your recent reflection at Dahican Beach.',
     category: NotificationCategory.community,
     timestamp: DateTime.now().subtract(const Duration(hours: 6)),
     isRead: true,
@@ -419,7 +492,8 @@ final seedNotifications = <NotificationItem>[
   NotificationItem(
     id: 'notif-4',
     title: '☀️ Perfect Sunset Window',
-    description: 'Calm winds and clear skies expected at Pujada Bay around 5:30 PM. Great for a 10-min reflection.',
+    description:
+        'Calm winds and clear skies expected at Pujada Bay around 5:30 PM. Great for a 10-min reflection.',
     category: NotificationCategory.weather,
     timestamp: DateTime.now().subtract(const Duration(days: 1)),
     isRead: true,

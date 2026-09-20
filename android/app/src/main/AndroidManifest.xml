@@ -38,7 +38,7 @@
         <!-- Google Maps API key. Replace with your key from Google Cloud Console. -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="YOUR_GOOGLE_MAPS_API_KEY" />
+            android:value="AIzaSyAnR26qVeqTz_RWj9MuQoVcwZQiMPug-Wo" />
         <!-- Use the Skia renderer instead of Impeller for better emulator compatibility. -->
         <meta-data
             android:name="io.flutter.embedding.android.Impeller"

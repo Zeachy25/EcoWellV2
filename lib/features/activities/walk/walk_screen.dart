@@ -59,14 +59,14 @@ class _WalkScreenState extends State<WalkScreen> {
     return switch (_step) {
       _Step.modeSelect => _ModeSelectionStep(onStart: _startActivity),
       _Step.recording => _LiveRecordingStep(
-          destination: _destination,
-          activityType: _activityType,
-          onFinished: _onFinished,
-        ),
+        destination: _destination,
+        activityType: _activityType,
+        onFinished: _onFinished,
+      ),
       _Step.summary => WalkSummaryScreen(
-          record: _record!,
-          onDone: () => Navigator.of(context).pop(),
-        ),
+        record: _record!,
+        onDone: () => Navigator.of(context).pop(),
+      ),
     };
   }
 }
@@ -74,14 +74,11 @@ class _WalkScreenState extends State<WalkScreen> {
 class _ModeSelectionStep extends ConsumerStatefulWidget {
   const _ModeSelectionStep({required this.onStart});
 
-  final void Function({
-    GreenSpace? destination,
-    WalkActivityType activityType,
-  }) onStart;
+  final void Function({GreenSpace? destination, WalkActivityType activityType})
+  onStart;
 
   @override
-  ConsumerState<_ModeSelectionStep> createState() =>
-      _ModeSelectionStepState();
+  ConsumerState<_ModeSelectionStep> createState() => _ModeSelectionStepState();
 }
 
 class _ModeSelectionStepState extends ConsumerState<_ModeSelectionStep> {
@@ -93,10 +90,7 @@ class _ModeSelectionStepState extends ConsumerState<_ModeSelectionStep> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Record Activity'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Record Activity'), elevation: 0),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
         children: [
@@ -133,11 +127,12 @@ class _ModeSelectionStepState extends ConsumerState<_ModeSelectionStep> {
                         boxShadow: isSelected
                             ? [
                                 BoxShadow(
-                                  color: AppColors.primaryGreen
-                                      .withValues(alpha: 0.25),
+                                  color: AppColors.primaryGreen.withValues(
+                                    alpha: 0.25,
+                                  ),
                                   blurRadius: 8,
                                   offset: const Offset(0, 3),
-                                )
+                                ),
                               ]
                             : null,
                       ),
@@ -227,10 +222,7 @@ class _ModeSelectionStepState extends ConsumerState<_ModeSelectionStep> {
                 const SizedBox(height: 4),
                 const Text(
                   'Track distance, live pace, splits, and elevation wherever you explore.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 const SizedBox(height: 18),
                 SizedBox(
@@ -443,6 +435,7 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
   GoogleMapController? _mapController;
   LatLng? _currentPosition;
   double _heading = 0;
+  double _accuracy = 0;
   BitmapDescriptor? _locationIcon;
   StreamSubscription<Position>? _fixSubscription;
   bool _isTrackingCamera = true;
@@ -503,7 +496,7 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
     final positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 6,
+        distanceFilter: 3,
       ),
     ).asBroadcastStream();
 
@@ -554,18 +547,16 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
     _fixSubscription = positionStream.listen(_onFix);
 
     _tickTimer?.cancel();
-    _tickTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        if (mounted) setState(() {});
-      },
-    );
+    _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _onFix(Position p) async {
     if (!mounted) return;
     _currentPosition = LatLng(p.latitude, p.longitude);
     _heading = p.heading;
+    _accuracy = p.accuracy;
     await _buildLocationIconIfNeeded();
     if (mounted) setState(() {});
 
@@ -595,21 +586,35 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     const center = Offset(32, 32);
+    const blue = Color(0xFF4285F4);
 
-    canvas.drawCircle(center, 15, ui.Paint()..color = const Color(0xFFFFFFFF));
-    canvas.drawCircle(center, 9, ui.Paint()..color = AppColors.primaryGreen);
-    final notch = ui.Path()
-      ..moveTo(32, 6)
-      ..lineTo(26, 22)
-      ..lineTo(38, 22)
+    // Outer white ring so the indicator stays visible on any map style.
+    canvas.drawCircle(
+      center,
+      18,
+      ui.Paint()
+        ..color = const Color(0xFFFFFFFF)
+        ..style = PaintingStyle.fill,
+    );
+    // Blue Strava-style body.
+    canvas.drawCircle(center, 14, ui.Paint()..color = blue);
+
+    // Heading arrow pointing up (north); rotated live via marker rotation.
+    final arrow = ui.Path()
+      ..moveTo(32, 10)
+      ..lineTo(25, 27)
+      ..lineTo(32, 23)
+      ..lineTo(39, 27)
       ..close();
-    canvas.drawPath(notch, ui.Paint()..color = const Color(0xFFFFFFFF));
+    canvas.drawPath(arrow, ui.Paint()..color = const Color(0xFFFFFFFF));
+
+    // Center core dot.
+    canvas.drawCircle(center, 4.5, ui.Paint()..color = blue);
 
     final image = await recorder.endRecording().toImage(64, 64);
-    final Uint8List bytes =
-        (await image.toByteData(format: ui.ImageByteFormat.png))!
-            .buffer
-            .asUint8List();
+    final Uint8List bytes = (await image.toByteData(
+      format: ui.ImageByteFormat.png,
+    ))!.buffer.asUint8List();
     return BitmapDescriptor.bytes(bytes);
   }
 
@@ -681,11 +686,11 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
               target: _currentPosition != null
                   ? _currentPosition!
                   : widget.destination != null
-                      ? LatLng(
-                          widget.destination!.latitude,
-                          widget.destination!.longitude,
-                        )
-                      : const LatLng(6.95, 126.21),
+                  ? LatLng(
+                      widget.destination!.latitude,
+                      widget.destination!.longitude,
+                    )
+                  : const LatLng(6.95, 126.21),
               zoom: 17,
             ),
             onMapCreated: (c) {
@@ -720,8 +725,7 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
                   icon: BitmapDescriptor.defaultMarkerWithHue(
                     BitmapDescriptor.hueAzure,
                   ),
-                  infoWindow:
-                      InfoWindow(title: widget.destination!.name),
+                  infoWindow: InfoWindow(title: widget.destination!.name),
                 ),
               if (_currentPosition != null)
                 Marker(
@@ -735,6 +739,16 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
                 ),
             },
             circles: {
+              if (_currentPosition != null)
+                Circle(
+                  circleId: const CircleId('location-accuracy'),
+                  center: _currentPosition!,
+                  radius: _accuracy > 0 ? _accuracy : 10,
+                  fillColor: const Color(0x1F4285F4),
+                  strokeColor: const Color(0x334285F4),
+                  strokeWidth: 1,
+                  zIndex: 1,
+                ),
               if (widget.destination != null)
                 Circle(
                   circleId: const CircleId('destination-zone'),
@@ -742,13 +756,28 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
                     widget.destination!.latitude,
                     widget.destination!.longitude,
                   ),
-                  radius: 500,
+                  radius: widget.destination!.radiusMeters,
                   fillColor: AppColors.primaryGreen.withValues(alpha: 0.12),
                   strokeColor: AppColors.primaryGreen,
                   strokeWidth: 2,
                 ),
             },
             polylines: {
+              if (widget.destination != null && _currentPosition != null)
+                Polyline(
+                  polylineId: const PolylineId('destination-route'),
+                  points: [
+                    _currentPosition!,
+                    LatLng(
+                      widget.destination!.latitude,
+                      widget.destination!.longitude,
+                    ),
+                  ],
+                  color: const Color(0xFF4285F4).withValues(alpha: 0.9),
+                  width: 3,
+                  patterns: [PatternItem.dash(14), PatternItem.gap(10)],
+                  zIndex: 5,
+                ),
               Polyline(
                 polylineId: const PolylineId('walk-casing'),
                 points: trailPoints,
@@ -794,9 +823,7 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
               left: 16,
               right: 16,
               bottom: 120,
-              child: _ArrivedBanner(
-                destinationName: widget.destination!.name,
-              ),
+              child: _ArrivedBanner(destinationName: widget.destination!.name),
             ),
 
           Positioned(
