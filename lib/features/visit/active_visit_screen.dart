@@ -133,7 +133,7 @@ class _ActiveVisitScreenState extends ConsumerState<ActiveVisitScreen> {
                         Icon(Icons.location_on, color: const Color(0xFF48CAE4), size: Responsive.size(context, 14)),
                         SizedBox(width: Responsive.size(context, 4)),
                         Text(
-                          'Within Nature Geofence (150m)',
+                          'Within Nature Geofence (${active?.greenSpace.fenceLabel ?? '150 m radius'})',
                           style: TextStyle(fontSize: Responsive.fontSize(context, 11), color: Colors.white, fontWeight: FontWeight.w600),
                         ),
                       ],

@@ -20,6 +20,7 @@ import 'features/explore/explore_map_screen.dart';
 import 'features/explore/green_space_detail_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/home/home_shell.dart';
+import 'features/navigation/navigation_screen.dart';
 import 'features/notifications/notifications_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/profile/profile_screen.dart';
@@ -106,6 +107,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? 'gs-001';
           return GreenSpaceDetailScreen(spaceId: id);
+        },
+      ),
+      GoRoute(
+        path: '/navigate',
+        builder: (context, state) {
+          final id = state.uri.queryParameters['spaceId'] ?? 'gs-001';
+          return NavigationScreen(spaceId: id);
         },
       ),
       GoRoute(

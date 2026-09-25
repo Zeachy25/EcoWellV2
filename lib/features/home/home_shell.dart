@@ -7,6 +7,36 @@ import '../../providers/active_visit_provider.dart';
 import '../../providers/geofence_provider.dart';
 import '../shared/ecowell_bottom_nav.dart';
 
+/// What the geofence listener should act on for a state update.
+enum GeofenceAction { none, promptArrival, promptDeparture }
+
+/// Pure decision logic for the geofence listener.
+///
+/// Entering a fenced area prompts the pre-visit assessment unless a visit is
+/// already active; leaving prompts the post-visit assessment only once the
+/// pre check has been completed. Kept as a pure function so the trigger
+/// behavior can be unit tested.
+GeofenceAction resolveGeofenceAction(
+  GeofenceState? previous,
+  GeofenceState next,
+  ActiveVisit? active,
+) {
+  final entered = previous?.insideSpace == null && next.insideSpace != null;
+  final exited = previous?.insideSpace != null && next.insideSpace == null;
+
+  if (entered) {
+    return active == null
+        ? GeofenceAction.promptArrival
+        : GeofenceAction.none;
+  }
+  if (exited) {
+    return active != null && active.preCompleted
+        ? GeofenceAction.promptDeparture
+        : GeofenceAction.none;
+  }
+  return GeofenceAction.none;
+}
+
 class HomeShell extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
@@ -35,23 +65,21 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     ref.listen(geofenceProvider, (previous, next) {
-      final entered = previous?.insideSpace == null && next.insideSpace != null;
-      final exited = previous?.insideSpace != null && next.insideSpace == null;
+      final action = resolveGeofenceAction(
+        previous,
+        next,
+        ref.read(activeVisitProvider),
+      );
 
-      if (entered) {
+      if (action == GeofenceAction.promptArrival) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _promptArrival(next.insideSpace!);
+        });
+      } else if (action == GeofenceAction.promptDeparture) {
         final active = ref.read(activeVisitProvider);
-        if (active == null) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _promptArrival(next.insideSpace!);
-          });
-        }
-      } else if (exited) {
-        final active = ref.read(activeVisitProvider);
-        if (active != null && active.preCompleted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _promptDeparture(active.greenSpace);
-          });
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _promptDeparture(active!.greenSpace);
+        });
       }
     });
 

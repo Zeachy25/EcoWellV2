@@ -221,7 +221,7 @@ class _GreenSpaceDetailScreenState extends ConsumerState<GreenSpaceDetailScreen>
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: () {
-                          context.push('/assessment?mode=pre&spaceId=${space.id}');
+                          context.push('/navigate?spaceId=${space.id}');
                         },
                         borderRadius: BorderRadius.circular(Responsive.size(context, 16)),
                         child: Center(

@@ -1,5 +1,6 @@
 import '../models/app_user.dart';
 import '../models/community_post.dart';
+import '../models/geo_fence.dart';
 import '../models/green_space.dart';
 import '../models/notification_item.dart';
 import '../models/place_review.dart';
@@ -14,14 +15,18 @@ import '../models/story.dart';
 ///   1. Copy an existing `GreenSpace(...)` below and change the values.
 ///   2. Give it a unique `id` (e.g. 'gs-009').
 ///   3. Set `name`, `category`, `address`, `latitude`, `longitude`.
-///   4. Set `radiusMeters:` - the geofence radius in meters. Omit it (or set
-///      150) for the default. Bigger areas (sanctuaries) can use a larger one.
+///   4. Choose the geofence shape:
+///      - Circle: set `radiusMeters:` (omit it, or set 150, for the default).
+///      - Exact shape / polygon / trapezoid: set `polygonVertices:` to a list
+///        of `GeoCoord(lat, lng)` corners (3+). The shape auto-closes and
+///        `radiusMeters` is ignored. Grab corner coordinates from Google Maps
+///        by right-clicking a spot -> "Copy coordinates here".
 ///   5. Fill description/tags/imageURL so the detail screen stays complete.
 ///
 /// Once saved, the place automatically:
-///   * Appears on the Explore map with a geofence circle + marker.
+///   * Appears on the Explore map with its geofence circle or polygon + marker.
 ///   * Triggers arrival/departure prompts when a user enters/exits it.
-///   * Becomes selectable as a walk destination (geofence ring shown).
+///   * Becomes selectable as a walk destination (geofence shape shown).
 final matiGreenSpaces = <GreenSpace>[
   GreenSpace(
     id: 'gs-001',
@@ -137,7 +142,13 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'Roxas Boulevard, Dahican, Mati City, Davao Oriental',
     latitude: 6.9091,
     longitude: 126.2657,
-    radiusMeters: 200,
+    polygonVertices: [
+      GeoCoord(6.9068, 126.2609),
+      GeoCoord(6.9118, 126.2608),
+      GeoCoord(6.9135, 126.2665),
+      GeoCoord(6.9094, 126.2696),
+      GeoCoord(6.9054, 126.2652),
+    ],
     amenities: ['Open sand', 'Sunrise view', 'Breezy', 'Surf spots'],
     noiseLevel: CrowdLevel.moderate,
     crowdDensity: CrowdLevel.moderate,
@@ -291,7 +302,153 @@ final matiGreenSpaces = <GreenSpace>[
     address: 'Dahican, Mati City, Davao Oriental',
     latitude: 6.932294,
     longitude: 126.253893,
-    radiusMeters: 35,
+    polygonVertices: [
+      GeoCoord(6.932612, 126.253912),
+      GeoCoord(6.932266, 126.253469),
+      GeoCoord(6.931901, 126.253757),
+      GeoCoord(6.932306, 126.254258),
+    ],
+    amenities: ['Boardwalk', 'Shaded paths', 'Photo spots', 'Bird Watching'],
+    noiseLevel: CrowdLevel.low,
+    crowdDensity: CrowdLevel.low,
+    calmFactor: CrowdLevel.high,
+    imageUrl: 'assets/images/guang2.jpg',
+    destressTag: 'DESTRESS LEVEL: HIGH',
+    distanceKm: 1.2,
+    tags: ['Quiet Space', 'Nature Walk', 'Boardwalk'],
+    reviews: [
+      PlaceReview(
+        reviewerName: 'Maria J.',
+        rating: 4.8,
+        comment:
+            'The morning breeze here is unmatched. Perfect spot for my 7 AM meditation session. Not too crowded during weekdays.',
+        date: DateTime(2026, 8, 18),
+      ),
+      PlaceReview(
+        reviewerName: 'Ryan A.',
+        rating: 4.8,
+        comment:
+            'Great for walking! There are many shaded areas and benches to just sit and enjoy the greenery.',
+        date: DateTime(2026, 8, 14),
+      ),
+      PlaceReview(
+        reviewerName: 'Kim D.',
+        rating: 4.8,
+        comment:
+            'Incredible tranquility among the mangroves. My stress melted away completely.',
+        date: DateTime(2026, 8, 10),
+      ),
+    ],
+  ),
+  GreenSpace(
+    id: 'gs-0010',
+    name: 'Test',
+    description:
+        'A scenic mangrove boardwalk and park in Dahican, valued for coastal defense, habitat preservation, and calm nature walks.',
+    category: 'Mangrove Park',
+    address: 'Dahican, Mati City, Davao Oriental',
+    latitude: 6.930475,
+    longitude: 126.258561,
+    polygonVertices: [
+      GeoCoord(6.930471, 126.25859),
+      GeoCoord(6.930442, 126.258561),
+      GeoCoord(6.930476, 126.258531),
+      GeoCoord(6.930508, 126.258552),
+    ],
+    amenities: ['Boardwalk', 'Shaded paths', 'Photo spots', 'Bird Watching'],
+    noiseLevel: CrowdLevel.low,
+    crowdDensity: CrowdLevel.low,
+    calmFactor: CrowdLevel.high,
+    imageUrl: 'assets/images/guang2.jpg',
+    destressTag: 'DESTRESS LEVEL: HIGH',
+    distanceKm: 1.2,
+    tags: ['Quiet Space', 'Nature Walk', 'Boardwalk'],
+    reviews: [
+      PlaceReview(
+        reviewerName: 'Maria J.',
+        rating: 4.8,
+        comment:
+            'The morning breeze here is unmatched. Perfect spot for my 7 AM meditation session. Not too crowded during weekdays.',
+        date: DateTime(2026, 8, 18),
+      ),
+      PlaceReview(
+        reviewerName: 'Ryan A.',
+        rating: 4.8,
+        comment:
+            'Great for walking! There are many shaded areas and benches to just sit and enjoy the greenery.',
+        date: DateTime(2026, 8, 14),
+      ),
+      PlaceReview(
+        reviewerName: 'Kim D.',
+        rating: 4.8,
+        comment:
+            'Incredible tranquility among the mangroves. My stress melted away completely.',
+        date: DateTime(2026, 8, 10),
+      ),
+    ],
+  ),
+  GreenSpace(
+    id: 'gs-0011',
+    name: 'Arlene',
+    description:
+        'A scenic mangrove boardwalk and park in Dahican, valued for coastal defense, habitat preservation, and calm nature walks.',
+    category: 'Mangrove Park',
+    address: 'Dahican, Mati City, Davao Oriental',
+    latitude: 6.966577,
+    longitude: 126.198630,
+    polygonVertices: [
+      GeoCoord(6.966535, 126.198581),
+      GeoCoord(6.966501, 126.198616),
+      GeoCoord(6.966583, 126.19868),
+      GeoCoord(6.966652, 126.198667),
+    ],
+    amenities: ['Boardwalk', 'Shaded paths', 'Photo spots', 'Bird Watching'],
+    noiseLevel: CrowdLevel.low,
+    crowdDensity: CrowdLevel.low,
+    calmFactor: CrowdLevel.high,
+    imageUrl: 'assets/images/guang2.jpg',
+    destressTag: 'DESTRESS LEVEL: HIGH',
+    distanceKm: 1.2,
+    tags: ['Quiet Space', 'Nature Walk', 'Boardwalk'],
+    reviews: [
+      PlaceReview(
+        reviewerName: 'Maria J.',
+        rating: 4.8,
+        comment:
+            'The morning breeze here is unmatched. Perfect spot for my 7 AM meditation session. Not too crowded during weekdays.',
+        date: DateTime(2026, 8, 18),
+      ),
+      PlaceReview(
+        reviewerName: 'Ryan A.',
+        rating: 4.8,
+        comment:
+            'Great for walking! There are many shaded areas and benches to just sit and enjoy the greenery.',
+        date: DateTime(2026, 8, 14),
+      ),
+      PlaceReview(
+        reviewerName: 'Kim D.',
+        rating: 4.8,
+        comment:
+            'Incredible tranquility among the mangroves. My stress melted away completely.',
+        date: DateTime(2026, 8, 10),
+      ),
+    ],
+  ),
+  GreenSpace(
+    id: 'gs-0012',
+    name: 'Joyce Park',
+    description:
+        'A scenic mangrove boardwalk and park in Dahican, valued for coastal defense, habitat preservation, and calm nature walks.',
+    category: 'Mangrove Park',
+    address: 'Dahican, Mati City, Davao Oriental',
+    latitude: 6.967414,
+    longitude: 126.224377,
+    polygonVertices: [
+      GeoCoord(6.967374, 126.224341),
+      GeoCoord(6.967428, 126.224311),
+      GeoCoord(6.967454, 126.224373),
+      GeoCoord(6.967428, 126.224443),
+    ],
     amenities: ['Boardwalk', 'Shaded paths', 'Photo spots', 'Bird Watching'],
     noiseLevel: CrowdLevel.low,
     crowdDensity: CrowdLevel.low,

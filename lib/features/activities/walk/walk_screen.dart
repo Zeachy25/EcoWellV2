@@ -9,11 +9,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
+import '../../../core/utils/geo.dart';
+import '../../../data/services/route_service.dart';
 import '../../../data/services/walk_tracker.dart';
+import '../../../models/geo_fence.dart';
 import '../../../models/green_space.dart';
 import '../../../models/walk_record.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../providers/geofence_provider.dart';
 import 'screen/walk_summary_screen.dart';
 import 'widgets/activity_controls.dart';
 import 'widgets/live_hud_overlay.dart';
@@ -306,14 +310,14 @@ class _ModeSelectionStepState extends ConsumerState<_ModeSelectionStep> {
   }
 }
 
-class _PlacePickerTile extends StatelessWidget {
+class _PlacePickerTile extends ConsumerWidget {
   const _PlacePickerTile({required this.space, required this.onTap});
 
   final GreenSpace space;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -383,10 +387,10 @@ class _PlacePickerTile extends StatelessWidget {
                             color: AppColors.forestDark,
                           ),
                         ),
-                        if (space.distanceKm != null) ...[
+                        if (ref.read(geofenceProvider).position case final Position pos) ...[
                           const SizedBox(width: 8),
                           Text(
-                            '· ${space.distanceKm!.toStringAsFixed(1)} km away',
+                            '· ${formatGeoDistance(distanceMeters(pos.latitude, pos.longitude, space.latitude, space.longitude))} away',
                             style: const TextStyle(
                               fontSize: 11,
                               color: AppColors.textSecondary,
@@ -440,6 +444,9 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
   StreamSubscription<Position>? _fixSubscription;
   bool _isTrackingCamera = true;
   bool _pendingProgrammaticMove = false;
+  bool _routeRequested = false;
+  bool _plannedRouteLoading = false;
+  List<LatLng>? _plannedRoute;
 
   @override
   void initState() {
@@ -546,6 +553,8 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
 
     _fixSubscription = positionStream.listen(_onFix);
 
+    _planDestinationRoute();
+
     _tickTimer?.cancel();
     _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
@@ -575,6 +584,27 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
         ),
       );
     }
+  }
+
+  Future<void> _planDestinationRoute() async {
+    final dest = widget.destination;
+    final origin = _currentPosition;
+    if (dest == null || origin == null || _routeRequested) return;
+    _routeRequested = true;
+    setState(() => _plannedRouteLoading = true);
+    final route = await fetchRoute(
+      originLat: origin.latitude,
+      originLng: origin.longitude,
+      destLat: dest.latitude,
+      destLng: dest.longitude,
+    );
+    if (!mounted) return;
+    setState(() {
+      _plannedRouteLoading = false;
+      if (route != null && route.points.length >= 2) {
+        _plannedRoute = route.points;
+      }
+    });
   }
 
   Future<void> _buildLocationIconIfNeeded() async {
@@ -749,14 +779,35 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
                   strokeWidth: 1,
                   zIndex: 1,
                 ),
-              if (widget.destination != null)
+              if (widget.destination != null &&
+                  widget.destination!.fence is CircleFence)
                 Circle(
                   circleId: const CircleId('destination-zone'),
                   center: LatLng(
                     widget.destination!.latitude,
                     widget.destination!.longitude,
                   ),
-                  radius: widget.destination!.radiusMeters,
+                  radius: (widget.destination!.fence as CircleFence)
+                      .radiusMeters,
+                  fillColor: AppColors.primaryGreen.withValues(alpha: 0.12),
+                  strokeColor: AppColors.primaryGreen,
+                  strokeWidth: 2,
+                ),
+            },
+            polygons: {
+              if (widget.destination != null &&
+                  widget.destination!.fence is PolygonFence)
+                Polygon(
+                  polygonId: const PolygonId('destination-zone'),
+                  points: () {
+                    final dest = widget.destination!;
+                    final vertices = (dest.fence as PolygonFence)
+                        .vertices
+                        .map((v) => LatLng(v.latitude, v.longitude))
+                        .toList();
+                    vertices.add(vertices.first);
+                    return vertices;
+                  }(),
                   fillColor: AppColors.primaryGreen.withValues(alpha: 0.12),
                   strokeColor: AppColors.primaryGreen,
                   strokeWidth: 2,
@@ -766,13 +817,15 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
               if (widget.destination != null && _currentPosition != null)
                 Polyline(
                   polylineId: const PolylineId('destination-route'),
-                  points: [
-                    _currentPosition!,
-                    LatLng(
-                      widget.destination!.latitude,
-                      widget.destination!.longitude,
-                    ),
-                  ],
+                  points: (_plannedRoute != null && _plannedRoute!.isNotEmpty)
+                      ? _plannedRoute!
+                      : [
+                          _currentPosition!,
+                          LatLng(
+                            widget.destination!.latitude,
+                            widget.destination!.longitude,
+                          ),
+                        ],
                   color: const Color(0xFF4285F4).withValues(alpha: 0.9),
                   width: 3,
                   patterns: [PatternItem.dash(14), PatternItem.gap(10)],
@@ -826,6 +879,17 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
               child: _ArrivedBanner(destinationName: widget.destination!.name),
             ),
 
+          if (_plannedRouteLoading && widget.destination != null)
+            Positioned(
+              left: 16,
+              right: 16,
+              top: MediaQuery.of(context).padding.top + 120,
+              child: const Align(
+                alignment: Alignment.center,
+                child: _RouteLoadingChip(),
+              ),
+            ),
+
           Positioned(
             left: 0,
             right: 0,
@@ -841,6 +905,41 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RouteLoadingChip extends StatelessWidget {
+  const _RouteLoadingChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 4,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(AppRadius.full),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 10),
+            Text(
+              'Planning route…',
+              style: TextStyle(
+                color: AppColors.forestDark,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

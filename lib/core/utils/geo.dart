@@ -19,3 +19,12 @@ double distanceMeters(
 }
 
 double _toRadians(double degrees) => degrees * pi / 180.0;
+
+/// Formats a distance in meters for display: meters under 1 km, otherwise
+/// kilometers with one decimal (e.g. "9 m", "1.2 km").
+String formatGeoDistance(double meters) {
+  if (meters >= 1000) {
+    return '${(meters / 1000).toStringAsFixed(1)} km';
+  }
+  return '${meters.round()} m';
+}

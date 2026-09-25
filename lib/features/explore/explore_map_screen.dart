@@ -5,12 +5,35 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/utils/geo.dart';
 import '../../core/utils/responsive.dart';
+import '../../models/geo_fence.dart';
 import '../../models/green_space.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/geofence_provider.dart';
+import '../shared/geofence_status_chip.dart';
 
 enum MapLayerMode { topographic, satellite, calmHeatmap }
+
+/// Returns [spaces] sorted by live distance (nearest first) using
+/// [distanceMetersOf]. Places with no distance yet (null, e.g. before the
+/// first GPS fix) sort last so they never jump ahead of known distances.
+/// The input list is not modified.
+List<GreenSpace> sortSpacesByDistance(
+  List<GreenSpace> spaces,
+  double? Function(GreenSpace) distanceMetersOf,
+) {
+  final sorted = [...spaces];
+  sorted.sort((a, b) {
+    final da = distanceMetersOf(a);
+    final db = distanceMetersOf(b);
+    if (da == null && db == null) return 0;
+    if (da == null) return 1;
+    if (db == null) return -1;
+    return da.compareTo(db);
+  });
+  return sorted;
+}
 
 class ExploreMapScreen extends ConsumerStatefulWidget {
   const ExploreMapScreen({super.key});
@@ -106,16 +129,47 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
     );
   }
 
-  /// Geofence circle for every (filtered) green space. The circle you are
-  /// currently inside gets highlighted in cyan.
+  /// Geofence circle for every (filtered) green space using a circular fence.
+  /// The circle you are currently inside gets highlighted in cyan.
   Set<Circle> _buildCircles(List<GreenSpace> spaces, GreenSpace? insideSpace) {
-    return spaces.map((space) {
+    return spaces.where((space) => space.fence is CircleFence).map((space) {
       final isInside = space.id == insideSpace?.id;
       final isSelected = space.id == _selectedSpaceId;
       return Circle(
         circleId: CircleId('geofence-${space.id}'),
         center: LatLng(space.latitude, space.longitude),
-        radius: space.radiusMeters,
+        radius: (space.fence as CircleFence).radiusMeters,
+        fillColor: isInside ? const Color(0x6648CAE4) : const Color(0x3390EEB0),
+        strokeColor: isInside
+            ? const Color(0xFF48CAE4)
+            : isSelected
+            ? const Color(0xFF1B7A3D)
+            : const Color(0xFF2E7D32),
+        strokeWidth: isInside ? 3 : 2,
+        consumeTapEvents: true,
+        onTap: () => setState(() => _selectedSpaceId = space.id),
+      );
+    }).toSet();
+  }
+
+  /// Geofence polygon for every (filtered) green space using a polygon fence
+  /// (e.g. a trapezoid tracing an exact boundary). Same highlight rules as the
+  /// circles above.
+  Set<Polygon> _buildPolygons(
+    List<GreenSpace> spaces,
+    GreenSpace? insideSpace,
+  ) {
+    return spaces.where((space) => space.fence is PolygonFence).map((space) {
+      final isInside = space.id == insideSpace?.id;
+      final isSelected = space.id == _selectedSpaceId;
+      final fence = space.fence as PolygonFence;
+      final vertices = fence.vertices
+          .map((v) => LatLng(v.latitude, v.longitude))
+          .toList();
+      vertices.add(vertices.first);
+      return Polygon(
+        polygonId: PolygonId('geofence-${space.id}'),
+        points: vertices,
         fillColor: isInside ? const Color(0x6648CAE4) : const Color(0x3390EEB0),
         strokeColor: isInside
             ? const Color(0xFF48CAE4)
@@ -141,7 +195,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
         ),
         infoWindow: InfoWindow(
           title: space.name,
-          snippet: 'Geofence ${space.radiusMeters.round()}m',
+          snippet: 'Geofence ${space.fenceLabel}',
         ),
         onTap: () => setState(() => _selectedSpaceId = space.id),
       );
@@ -351,6 +405,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
   }
 
   void _openSeeAllModal(List<GreenSpace> spaces) {
+    final sorted = sortSpacesByDistance(spaces, _distanceMetersTo);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -397,7 +452,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
                   ),
                   SizedBox(height: Responsive.size(context, 4)),
                   Text(
-                    '${spaces.length} natural restorative spaces available',
+                    '${sorted.length} natural restorative spaces available',
                     style: TextStyle(
                       fontSize: Responsive.fontSize(context, 12),
                       color: AppColors.textSecondary,
@@ -407,11 +462,11 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
                   Expanded(
                     child: ListView.separated(
                       controller: scrollController,
-                      itemCount: spaces.length,
+                      itemCount: sorted.length,
                       separatorBuilder: (context, index) =>
                           SizedBox(height: Responsive.size(context, 12)),
                       itemBuilder: (context, index) {
-                        final space = spaces[index];
+                        final space = sorted[index];
                         return GestureDetector(
                           onTap: () {
                             Navigator.pop(ctx);
@@ -478,7 +533,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
                                         height: Responsive.size(context, 2),
                                       ),
                                       Text(
-                                        '${space.category} • ${space.distanceKm ?? 1.2} km',
+                                        '${space.category} • ${_distanceText(space)}',
                                         style: TextStyle(
                                           fontSize: Responsive.fontSize(
                                             context,
@@ -567,7 +622,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
     final geofence = ref.watch(geofenceProvider);
     final query = _searchController.text.trim().toLowerCase();
 
-    final filteredSpaces = spaces.where((s) {
+    final filteredSpaces = sortSpacesByDistance(spaces.where((s) {
       if (query.isNotEmpty) {
         final matchesQuery =
             s.name.toLowerCase().contains(query) ||
@@ -595,19 +650,20 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
         }
       }
 
-      if ((s.distanceKm ?? 1.2) > _maxDistance) {
+      if (_distanceMetersTo(s) case final double meters
+          when meters / 1000 > _maxDistance) {
         return false;
       }
 
       return true;
-    }).toList();
+    }).toList(), _distanceMetersTo);
 
     return Scaffold(
       backgroundColor: const Color(0xFF0A1927),
       body: Stack(
         clipBehavior: Clip.none,
         children: [
-          // 1. Real Google Map with developer-defined geofence circles
+          // 1. Real Google Map with developer-defined geofence shapes
           Positioned.fill(
             child: GoogleMap(
               mapType: _mapType,
@@ -621,6 +677,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
               onMapCreated: (controller) => _mapController = controller,
               markers: _buildMarkers(filteredSpaces, geofence.insideSpace),
               circles: _buildCircles(filteredSpaces, geofence.insideSpace),
+              polygons: _buildPolygons(filteredSpaces, geofence.insideSpace),
               myLocationEnabled: true,
               myLocationButtonEnabled: false,
               compassEnabled: true,
@@ -744,6 +801,20 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
             ),
           ),
 
+          // 2b. Live geofence status chip (tap to simulate enter/exit)
+          Positioned(
+            top: Responsive.size(context, 76),
+            left: Responsive.size(context, 16),
+            child: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  top: Responsive.size(context, 5),
+                ),
+                child: const GeofenceStatusChip(),
+              ),
+            ),
+          ),
+
           // 3. Floating Action Buttons on Right (Layers & GPS Location)
           Positioned(
             right: 16,
@@ -751,6 +822,20 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _buildMapControlBtn(
+                  icon: Icons.route_rounded,
+                  tooltip: _selectedSpaceId == null
+                      ? 'Select a green pin to get the route'
+                      : 'Get route to selected pin',
+                  onTap: _selectedSpaceId == null
+                      ? null
+                      : () {
+                          final id = _selectedSpaceId;
+                          if (id == null) return;
+                          context.push('/navigate?spaceId=$id');
+                        },
+                ),
+                SizedBox(height: Responsive.size(context, 12)),
                 _buildMapControlBtn(
                   icon: Icons.layers_outlined,
                   tooltip: 'Switch Map View',
@@ -885,8 +970,9 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
   Widget _buildMapControlBtn({
     required IconData icon,
     required String tooltip,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
   }) {
+    final enabled = onTap != null;
     return Tooltip(
       message: tooltip,
       child: GestureDetector(
@@ -895,7 +981,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
           width: Responsive.size(context, 44),
           height: Responsive.size(context, 44),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: enabled ? Colors.white : Colors.white.withValues(alpha: 0.6),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -907,12 +993,33 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
           ),
           child: Icon(
             icon,
-            color: const Color(0xFF163324),
+            color: enabled ? const Color(0xFF163324) : const Color(0xFF9EAAB3),
             size: Responsive.size(context, 22),
           ),
         ),
       ),
     );
+  }
+
+  /// Distance in meters from the user's current GPS fix to [space]. Returns null
+  /// (rendered as "--") until the first position fix arrives, so distances are
+  /// always real and never the seeded static values.
+  double? _distanceMetersTo(GreenSpace space) {
+    final pos = ref.read(geofenceProvider).position;
+    if (pos == null) return null;
+    return distanceMeters(
+      pos.latitude,
+      pos.longitude,
+      space.latitude,
+      space.longitude,
+    );
+  }
+
+  /// Display label for [space]'s distance (e.g. "9 m", "1.2 km", "--").
+  String _distanceText(GreenSpace space) {
+    final meters = _distanceMetersTo(space);
+    if (meters == null) return '--';
+    return formatGeoDistance(meters);
   }
 
   Widget _buildPlaceCard(BuildContext context, GreenSpace space) {
@@ -1082,7 +1189,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
                       SizedBox(width: Responsive.size(context, 3)),
                       Expanded(
                         child: Text(
-                          '${space.distanceKm ?? 1.2} km • ${space.category}',
+                          '${_distanceText(space)} • ${space.category}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(

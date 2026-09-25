@@ -1,4 +1,5 @@
 import '../core/config/app_config.dart';
+import 'geo_fence.dart';
 import 'place_review.dart';
 
 enum CrowdLevel { low, moderate, high }
@@ -37,7 +38,15 @@ class GreenSpace {
 
   /// The geofence size (meters) around this place. Enter/exit detection and
   /// the map circle use this radius. Defaults to 150m when not specified.
+  /// Ignored when [polygonVertices] is set.
   final double radiusMeters;
+
+  /// Optional polygon corners that shape this place's geofence. When set (3+
+  /// corners), the geofence becomes a [PolygonFence] instead of a radius
+  /// circle, so you can trace an exact boundary - e.g. a trapezoid following a
+  /// beach shoreline. The shape is treated as closed (auto-connects last to
+  /// first corner).
+  final List<GeoCoord>? polygonVertices;
 
   const GreenSpace({
     required this.id,
@@ -57,7 +66,25 @@ class GreenSpace {
     this.distanceKm,
     this.tags = const [],
     this.radiusMeters = AppConfig.geofenceRadiusMeters,
+    this.polygonVertices,
   });
+
+  /// The geofence shape for this place - a radius circle by default, or the
+  /// [PolygonFence] built from [polygonVertices] when 3+ corners are given.
+  GeoFence get fence {
+    final vertices = polygonVertices;
+    if (vertices != null && vertices.length >= 3) {
+      return PolygonFence(vertices);
+    }
+    return CircleFence(
+      latitude: latitude,
+      longitude: longitude,
+      radiusMeters: radiusMeters,
+    );
+  }
+
+  /// Short label describing this place's geofence shape.
+  String get fenceLabel => fence.label;
 
   double get quietScore {
     if (reviews.isNotEmpty) {
