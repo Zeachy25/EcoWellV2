@@ -15,7 +15,7 @@ class EcoWellBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final navBarHeight = Responsive.size(context, 56);
-    final topSpace = Responsive.size(context, 22);
+    final topSpace = Responsive.size(context, 58);
     final totalHeight = navBarHeight + topSpace + Responsive.bottomPadding(context);
     final fabSize = Responsive.size(context, 56);
     final notchGap = Responsive.size(context, 58);

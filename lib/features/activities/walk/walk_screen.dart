@@ -10,15 +10,22 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/utils/geo.dart';
+import '../../../data/services/device_heading_service.dart';
+import '../../../data/services/location_tracking_service.dart';
+import '../../../data/services/navigation_location_filter.dart';
 import '../../../data/services/route_service.dart';
 import '../../../data/services/walk_tracker.dart';
-import '../../../models/geo_fence.dart';
 import '../../../models/green_space.dart';
 import '../../../models/walk_record.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/geofence_provider.dart';
+import '../../../providers/heading_provider.dart';
+import '../../../providers/location_tracking_provider.dart';
+import '../../shared/fence_overlay.dart';
+import '../../shared/route_line.dart';
 import 'screen/walk_summary_screen.dart';
+import 'walk_location_pipeline.dart';
 import 'widgets/activity_controls.dart';
 import 'widgets/live_hud_overlay.dart';
 
@@ -387,7 +394,8 @@ class _PlacePickerTile extends ConsumerWidget {
                             color: AppColors.forestDark,
                           ),
                         ),
-                        if (ref.read(geofenceProvider).position case final Position pos) ...[
+                        if (ref.read(geofenceProvider).position
+                            case final Position pos) ...[
                           const SizedBox(width: 8),
                           Text(
                             '· ${formatGeoDistance(distanceMeters(pos.latitude, pos.longitude, space.latitude, space.longitude))} away',
@@ -439,84 +447,63 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
   GoogleMapController? _mapController;
   LatLng? _currentPosition;
   double _heading = 0;
-  double _accuracy = 0;
   BitmapDescriptor? _locationIcon;
-  StreamSubscription<Position>? _fixSubscription;
+  BitmapDescriptor? _locationIconPlain;
+  StreamSubscription<double>? _headingSubscription;
+  double? _compassHeading;
+  bool _compassAvailable = false;
+  double? _gpsCourse;
+  double _currentSpeed = 0;
   bool _isTrackingCamera = true;
   bool _pendingProgrammaticMove = false;
   bool _routeRequested = false;
   bool _plannedRouteLoading = false;
   List<LatLng>? _plannedRoute;
 
+  late final WalkLocationPipeline _pipeline;
+  StreamSubscription<NavigationLocation>? _locationSubscription;
+  int _lifecycleSerial = 0;
+
   @override
   void initState() {
     super.initState();
+    _pipeline = WalkLocationPipeline(
+      locationService: ref.read(locationTrackingServiceProvider),
+      filter: NavigationLocationFilter(
+        config: const NavigationLocationFilterConfig(
+          maxAccuracyMeters: 65,
+          maxJumpMeters: 90,
+          maxSpeedMetersPerSecond: 18,
+        ),
+      ),
+    );
+    _headingSubscription = ref
+        .read(deviceHeadingProvider)
+        .headings
+        .listen(_onCompassHeading);
     _startRecording();
   }
 
-  Future<void> _startRecording() async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      if (mounted) Navigator.of(context).pop();
-      return;
-    }
+  void _onCompassHeading(double heading) {
     if (!mounted) return;
+    final delta = ((heading - _heading + 540) % 360) - 180;
+    if (_compassAvailable && delta.abs() < 3) return;
+    setState(() {
+      _compassHeading = heading;
+      _compassAvailable = true;
+      _heading =
+          DeviceHeadingService.resolve(
+            compassAvailable: true,
+            compassHeading: heading,
+            gpsCourseDegrees: _gpsCourse,
+            speedMetersPerSecond: _currentSpeed,
+          ) ??
+          _heading;
+    });
+  }
 
-    try {
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null && mounted) {
-        setState(() {
-          _currentPosition = LatLng(last.latitude, last.longitude);
-          _heading = last.heading;
-        });
-      }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 8),
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _currentPosition = LatLng(pos.latitude, pos.longitude);
-          _heading = pos.heading;
-        });
-      }
-    } catch (_) {}
-    if (_currentPosition != null && _mapController != null) {
-      _pendingProgrammaticMove = true;
-      await _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: _currentPosition!, zoom: 17),
-        ),
-      );
-    }
-
-    final positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 3,
-      ),
-    ).asBroadcastStream();
-
-    GeoPoint? initialPoint;
-    final currentPos = _currentPosition;
-    if (currentPos != null) {
-      initialPoint = GeoPoint(
-        latitude: currentPos.latitude,
-        longitude: currentPos.longitude,
-        timestamp: DateTime.now(),
-      );
-    }
-
+  Future<void> _startRecording() async {
+    final lifecycle = ++_lifecycleSerial;
     _tracker.onPosition = (_) {
       if (mounted) setState(() {});
     };
@@ -537,21 +524,41 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
       if (mounted) setState(() {});
     };
 
+    // Subscribe the tracker before the GPS source so no accepted fix is lost.
     _tracker.start(
       widget.destination,
       activityType: widget.activityType,
-      positionStream: positionStream.map(
-        (p) => GeoPoint(
-          latitude: p.latitude,
-          longitude: p.longitude,
-          altitude: p.altitude,
-          timestamp: p.timestamp,
-        ),
-      ),
-      initial: initialPoint,
+      positionStream: _pipeline.points,
     );
 
-    _fixSubscription = positionStream.listen(_onFix);
+    // Feed the map the same accepted fixes so the position indicator tracks
+    // the user live. This must also precede the GPS source, otherwise the
+    // cached seed fix is published before anyone is listening.
+    await _locationSubscription?.cancel();
+    _locationSubscription = _pipeline.locations.listen((accepted) {
+      if (!mounted) return;
+      _applyAccepted(accepted);
+    });
+
+    final acquisition = await _pipeline.start();
+    if (!mounted || lifecycle != _lifecycleSerial) return;
+    if (acquisition.status != LocationTrackingStatus.started) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+
+    if (_currentPosition == null) {
+      // The shared service seeds asynchronously, so pull one fix directly to
+      // avoid waiting for the first streamed update before the map can center.
+      final fix = await ref
+          .read(locationTrackingServiceProvider)
+          .currentPosition();
+      if (!mounted || lifecycle != _lifecycleSerial || !_pipeline.isActive) {
+        return;
+      }
+      // Ingesting publishes to the map subscription above, which applies it.
+      if (fix != null) _pipeline.ingest(fix);
+    }
 
     _planDestinationRoute();
 
@@ -561,29 +568,41 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
     });
   }
 
-  Future<void> _onFix(Position p) async {
-    if (!mounted) return;
-    _currentPosition = LatLng(p.latitude, p.longitude);
-    _heading = p.heading;
-    _accuracy = p.accuracy;
-    await _buildLocationIconIfNeeded();
-    if (mounted) setState(() {});
+  void _applyAccepted(NavigationLocation? accepted) {
+    if (accepted == null || !mounted) return;
+    _currentPosition = LatLng(accepted.latitude, accepted.longitude);
+    _gpsCourse = accepted.headingDegrees;
+    _currentSpeed = accepted.speedMetersPerSecond;
+    _heading =
+        DeviceHeadingService.resolve(
+          compassAvailable: _compassAvailable,
+          compassHeading: _compassHeading,
+          gpsCourseDegrees: _gpsCourse,
+          speedMetersPerSecond: _currentSpeed,
+        ) ??
+        0;
+    setState(() {});
+    unawaited(_buildLocationIconsIfNeeded());
 
-    if (mounted &&
-        _isTrackingCamera &&
-        _mapController != null &&
-        _currentPosition != null) {
-      _pendingProgrammaticMove = true;
-      await _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(
-            target: _currentPosition!,
-            zoom: 17,
-            bearing: _heading,
-          ),
-        ),
-      );
+    if (!mounted ||
+        !_isTrackingCamera ||
+        _mapController == null ||
+        _currentPosition == null) {
+      return;
     }
+    final target = _currentPosition!;
+    final bearing = _heading;
+    _pendingProgrammaticMove = true;
+    _mapController!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(target: target, zoom: 17, bearing: bearing),
+      ),
+    );
+  }
+
+  bool get _hasDirection {
+    if (_compassAvailable && _compassHeading != null) return true;
+    return _currentSpeed >= 0.8 && _gpsCourse != null;
   }
 
   Future<void> _planDestinationRoute() async {
@@ -597,22 +616,26 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
       originLng: origin.longitude,
       destLat: dest.latitude,
       destLng: dest.longitude,
+      profile: OrsProfile.footWalking,
+      preference: OrsPreference.recommended,
     );
     if (!mounted) return;
     setState(() {
       _plannedRouteLoading = false;
-      if (route != null && route.points.length >= 2) {
-        _plannedRoute = route.points;
+      final points = route?.points;
+      if (points != null && points.length >= 2) {
+        _plannedRoute = points;
       }
     });
   }
 
-  Future<void> _buildLocationIconIfNeeded() async {
-    if (_locationIcon != null) return;
-    _locationIcon = await _buildLocationIcon();
+  Future<void> _buildLocationIconsIfNeeded() async {
+    if (_locationIcon != null && _locationIconPlain != null) return;
+    _locationIcon = await _buildLocationIcon(withArrow: true);
+    _locationIconPlain = await _buildLocationIcon(withArrow: false);
   }
 
-  Future<BitmapDescriptor> _buildLocationIcon() async {
+  Future<BitmapDescriptor> _buildLocationIcon({required bool withArrow}) async {
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     const center = Offset(32, 32);
@@ -629,14 +652,16 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
     // Blue Strava-style body.
     canvas.drawCircle(center, 14, ui.Paint()..color = blue);
 
-    // Heading arrow pointing up (north); rotated live via marker rotation.
-    final arrow = ui.Path()
-      ..moveTo(32, 10)
-      ..lineTo(25, 27)
-      ..lineTo(32, 23)
-      ..lineTo(39, 27)
-      ..close();
-    canvas.drawPath(arrow, ui.Paint()..color = const Color(0xFFFFFFFF));
+    if (withArrow) {
+      // Heading arrow pointing up (north); rotated live via marker rotation.
+      final arrow = ui.Path()
+        ..moveTo(32, 10)
+        ..lineTo(25, 27)
+        ..lineTo(32, 23)
+        ..lineTo(39, 27)
+        ..close();
+      canvas.drawPath(arrow, ui.Paint()..color = const Color(0xFFFFFFFF));
+    }
 
     // Center core dot.
     canvas.drawCircle(center, 4.5, ui.Paint()..color = blue);
@@ -680,20 +705,31 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
       }
       return;
     }
+    _releaseTracking();
     widget.onFinished(record);
   }
 
   void _discard() {
     _tracker.stop();
+    _releaseTracking();
     if (mounted) Navigator.of(context).pop();
+  }
+
+  void _releaseTracking() {
+    _lifecycleSerial++;
+    unawaited(_locationSubscription?.cancel());
+    _locationSubscription = null;
+    unawaited(_pipeline.stop());
+    _currentPosition = null;
   }
 
   @override
   void dispose() {
     _tickTimer?.cancel();
     _tickTimer = null;
-    _fixSubscription?.cancel();
-    _fixSubscription = null;
+    _headingSubscription?.cancel();
+    _headingSubscription = null;
+    _releaseTracking();
     _mapController = null;
     _tracker.dispose();
     super.dispose();
@@ -761,7 +797,9 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
                 Marker(
                   markerId: const MarkerId('you'),
                   position: _currentPosition!,
-                  icon: _locationIcon ?? BitmapDescriptor.defaultMarker,
+                  icon: _hasDirection
+                      ? (_locationIcon ?? BitmapDescriptor.defaultMarker)
+                      : (_locationIconPlain ?? BitmapDescriptor.defaultMarker),
                   rotation: _heading,
                   anchor: const Offset(0.5, 0.5),
                   flat: true,
@@ -769,68 +807,32 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
                 ),
             },
             circles: {
-              if (_currentPosition != null)
-                Circle(
-                  circleId: const CircleId('location-accuracy'),
-                  center: _currentPosition!,
-                  radius: _accuracy > 0 ? _accuracy : 10,
-                  fillColor: const Color(0x1F4285F4),
-                  strokeColor: const Color(0x334285F4),
-                  strokeWidth: 1,
-                  zIndex: 1,
-                ),
-              if (widget.destination != null &&
-                  widget.destination!.fence is CircleFence)
-                Circle(
-                  circleId: const CircleId('destination-zone'),
-                  center: LatLng(
-                    widget.destination!.latitude,
-                    widget.destination!.longitude,
-                  ),
-                  radius: (widget.destination!.fence as CircleFence)
-                      .radiusMeters,
-                  fillColor: AppColors.primaryGreen.withValues(alpha: 0.12),
-                  strokeColor: AppColors.primaryGreen,
-                  strokeWidth: 2,
-                ),
+              if (widget.destination case final GreenSpace destination?)
+                if (FenceOverlay.circleFor(destination) case final Circle zone)
+                  zone,
             },
             polygons: {
-              if (widget.destination != null &&
-                  widget.destination!.fence is PolygonFence)
-                Polygon(
-                  polygonId: const PolygonId('destination-zone'),
-                  points: () {
-                    final dest = widget.destination!;
-                    final vertices = (dest.fence as PolygonFence)
-                        .vertices
-                        .map((v) => LatLng(v.latitude, v.longitude))
-                        .toList();
-                    vertices.add(vertices.first);
-                    return vertices;
-                  }(),
-                  fillColor: AppColors.primaryGreen.withValues(alpha: 0.12),
-                  strokeColor: AppColors.primaryGreen,
-                  strokeWidth: 2,
-                ),
+              if (widget.destination case final GreenSpace destination?)
+                if (FenceOverlay.polygonFor(destination) case final Polygon zone)
+                  zone,
             },
             polylines: {
               if (widget.destination != null && _currentPosition != null)
-                Polyline(
-                  polylineId: const PolylineId('destination-route'),
-                  points: (_plannedRoute != null && _plannedRoute!.isNotEmpty)
-                      ? _plannedRoute!
-                      : [
-                          _currentPosition!,
-                          LatLng(
-                            widget.destination!.latitude,
-                            widget.destination!.longitude,
-                          ),
-                        ],
-                  color: const Color(0xFF4285F4).withValues(alpha: 0.9),
-                  width: 3,
-                  patterns: [PatternItem.dash(14), PatternItem.gap(10)],
-                  zIndex: 5,
-                ),
+                if (RouteLine.polyline(
+                      id: 'destination-route',
+                      points: _plannedRoute,
+                      fallback: [
+                        _currentPosition!,
+                        LatLng(
+                          widget.destination!.latitude,
+                          widget.destination!.longitude,
+                        ),
+                      ],
+                      zIndex: 5,
+                      jointTypeRound: true,
+                    )
+                    case final Polyline planned)
+                  planned,
               Polyline(
                 polylineId: const PolylineId('walk-casing'),
                 points: trailPoints,
@@ -842,8 +844,8 @@ class _LiveRecordingStepState extends ConsumerState<_LiveRecordingStep> {
               Polyline(
                 polylineId: const PolylineId('walk-route'),
                 points: trailPoints,
-                color: const Color(0xFF4285F4),
-                width: 5,
+                color: RouteLine.plannedColor,
+                width: RouteLine.plannedWidth,
                 jointType: JointType.round,
                 zIndex: 11,
               ),

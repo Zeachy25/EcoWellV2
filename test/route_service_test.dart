@@ -31,23 +31,46 @@ class _ThrowingClient extends http.BaseClient {
 }
 
 Map<String, dynamic> _sampleOrsJson() => {
-      'type': 'FeatureCollection',
-      'features': [
-        {
-          'type': 'Feature',
-          'geometry': {
-            'type': 'LineString',
-            'coordinates': [
-              [126.2157, 6.9532],
-              [126.2257, 6.9632],
+  'type': 'FeatureCollection',
+  'features': [
+    {
+      'type': 'Feature',
+      'geometry': {
+        'type': 'LineString',
+        'coordinates': [
+          [126.2157, 6.9532],
+          [126.2257, 6.9632],
+        ],
+      },
+      'properties': {
+        'summary': {'distance': 1420.5, 'duration': 894.2},
+        'segments': [
+          {
+            'steps': [
+              {
+                'distance': 1420.5,
+                'duration': 894.2,
+                'instructions': 'Head north',
+                'name': 'Main Street',
+                'geometry': {
+                  'coordinates': [
+                    [126.2157, 6.9532],
+                    [126.2257, 6.9632],
+                  ],
+                },
+                'maneuver': {
+                  'type': 'depart',
+                  'bearing_after': 20,
+                  'location': [126.2157, 6.9532],
+                },
+              },
             ],
           },
-          'properties': {
-            'summary': {'distance': 1420.5, 'duration': 894.2},
-          },
-        },
-      ],
-    };
+        ],
+      },
+    },
+  ],
+};
 
 void main() {
   group('parseOrsDirectionsJson', () {
@@ -62,6 +85,10 @@ void main() {
       expect(route.points.last.longitude, 126.2257);
       expect(route.distanceMeters, 1420.5);
       expect(route.durationSeconds, 894.2);
+      expect(route.steps, hasLength(1));
+      expect(route.steps.single.instruction, 'Head north');
+      expect(route.steps.single.maneuverType, 'depart');
+      expect(route.steps.single.points, hasLength(2));
     });
 
     test('returns null when there are no features', () {
@@ -84,9 +111,11 @@ void main() {
         parseOrsDirectionsJson({
           'features': [
             {
-              'geometry': {'coordinates': [
+              'geometry': {
+                'coordinates': [
                   [126.2157, 6.9532],
-                ]},
+                ],
+              },
             },
           ],
         }),
@@ -113,29 +142,34 @@ void main() {
   });
 
   group('fetchRoute', () {
-    test('requests driving-car with shortest preference by default', () async {
-      final client = _FakeClient(
-        statusCode: 200,
-        body: jsonEncode(_sampleOrsJson()),
-      );
+    test(
+      'requests foot-walking with recommended preference by default',
+      () async {
+        final client = _FakeClient(
+          statusCode: 200,
+          body: jsonEncode(_sampleOrsJson()),
+        );
 
-      await fetchRoute(
-        originLat: 6.9532,
-        originLng: 126.2157,
-        destLat: 6.9632,
-        destLng: 126.2257,
-        client: client,
-      );
+        await fetchRoute(
+          originLat: 6.9532,
+          originLng: 126.2157,
+          destLat: 6.9632,
+          destLng: 126.2257,
+          client: client,
+        );
 
-      expect(client.lastRequest, isNotNull);
-      expect(
-        client.lastRequest!.url.path,
-        contains('/directions/driving-car/geojson'),
-      );
-      final request = client.lastRequest! as http.Request;
-      final body = jsonDecode(request.body) as Map<String, dynamic>;
-      expect(body['preference'], 'shortest');
-    });
+        expect(client.lastRequest, isNotNull);
+        expect(
+          client.lastRequest!.url.path,
+          contains('/directions/foot-walking/geojson'),
+        );
+        final request = client.lastRequest! as http.Request;
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['preference'], 'recommended');
+        expect(body['instructions'], isTrue);
+        expect(body['geometry'], isTrue);
+      },
+    );
 
     test('parses a 200 response into an OrsRoute', () async {
       final client = _FakeClient(

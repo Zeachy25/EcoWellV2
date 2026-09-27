@@ -66,6 +66,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             child: ScaleTransition(
               scale: _scaleAnim,
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(

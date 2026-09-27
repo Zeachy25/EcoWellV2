@@ -245,10 +245,27 @@ class GreenSpaceDetailSheet extends ConsumerWidget {
               ],
             ),
             SizedBox(height: Responsive.size(context, 12)),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.directions),
-              label: const Text('Get Directions'),
-              onPressed: () => _openMaps(),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.navigation),
+                    label: const Text('Navigate'),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      context.push('/navigate?spaceId=${space.id}');
+                    },
+                  ),
+                ),
+                SizedBox(width: Responsive.size(context, 8)),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.directions),
+                    label: const Text('Get Directions'),
+                    onPressed: _openMaps,
+                  ),
+                ),
+              ],
             ),
             SizedBox(height: Responsive.size(context, 20)),
             Row(

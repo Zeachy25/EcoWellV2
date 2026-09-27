@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,6 +12,8 @@ class LocalStore {
   static const _visitsKey = 'ecowell_visits_v1';
   static const _reminderKey = 'ecowell_daily_reminder_v1';
   static const _reviewsKey = 'ecowell_user_reviews_v1';
+  static const _mascotXKey = 'ecowell_ai_mascot_x_v1';
+  static const _mascotYKey = 'ecowell_ai_mascot_y_v1';
 
   final SharedPreferences _prefs;
 
@@ -68,5 +71,20 @@ class LocalStore {
       _reviewsKey,
       jsonEncode(reviews.map((r) => r.toJson()).toList()),
     );
+  }
+
+  /// Normalized 0..1 position of the draggable AI mascot, or null when the
+  /// user has never moved it. Normalized rather than raw pixels so the mascot
+  /// lands in the same relative spot on other screen sizes and after rotation.
+  Offset? get aiMascotPosition {
+    final x = _prefs.getDouble(_mascotXKey);
+    final y = _prefs.getDouble(_mascotYKey);
+    if (x == null || y == null) return null;
+    return Offset(x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+  }
+
+  Future<void> saveAiMascotPosition(Offset position) async {
+    await _prefs.setDouble(_mascotXKey, position.dx.clamp(0.0, 1.0));
+    await _prefs.setDouble(_mascotYKey, position.dy.clamp(0.0, 1.0));
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -47,6 +48,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       return null;
     },
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          child: Text('Route error: ${state.error}'),
+        ),
+      ),
+    ),
     routes: [
       GoRoute(
         path: '/splash',

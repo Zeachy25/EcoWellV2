@@ -5,6 +5,7 @@ import '../../core/utils/responsive.dart';
 import '../../models/ai_message.dart';
 import '../../providers/ai_assistant_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../shared/ecowell_ai_mascot.dart';
 import '../shared/ecowell_app_bar.dart';
 import '../shared/ecowell_logo.dart';
 
@@ -120,7 +121,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   vertical: Responsive.size(context, 10),
                 ),
                 children: [
-                  // Center Hero Visual if only 1 message
+                  // Center Hero Visual matching ai screen.png
                   if (aiState.messages.length <= 1) ...[
                     SizedBox(height: Responsive.size(context, 20)),
                     Center(
@@ -131,24 +132,18 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                           shape: BoxShape.circle,
                           color: AppColors.mintLight.withValues(alpha: 0.8),
                           border: Border.all(color: AppColors.mintSoft, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primaryGreen.withValues(alpha: 0.12),
+                              blurRadius: 24,
+                              spreadRadius: 4,
+                            ),
+                          ],
                         ),
                         child: Center(
-                          child: Container(
-                            width: Responsive.size(context, 120),
-                            height: Responsive.size(context, 120),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF2EC4B6), Color(0xFF1E5E41)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.psychology_alt_rounded,
-                              color: Colors.white,
-                              size: Responsive.size(context, 60),
-                            ),
+                          child: EcoWellAiMascotIcon(
+                            size: Responsive.size(context, 90),
+                            withShadow: true,
                           ),
                         ),
                       ),
@@ -186,10 +181,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: Responsive.size(context, 14),
-                            backgroundColor: AppColors.mintGreen,
-                            child: Icon(Icons.eco, size: Responsive.size(context, 14), color: Colors.white),
+                          EcoWellAiMascotIcon(
+                            size: Responsive.size(context, 26),
                           ),
                           SizedBox(width: Responsive.size(context, 8)),
                           Text(
@@ -341,10 +334,8 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!msg.isUser) ...[
-            CircleAvatar(
-              radius: Responsive.size(context, 14),
-              backgroundColor: AppColors.mintGreen,
-              child: Icon(Icons.eco, size: Responsive.size(context, 14), color: Colors.white),
+            EcoWellAiMascotIcon(
+              size: Responsive.size(context, 26),
             ),
             SizedBox(width: Responsive.size(context, 8)),
           ],

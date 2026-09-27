@@ -154,9 +154,12 @@ void main() {
           GeofenceAction.promptDeparture);
     });
 
-    test('exiting after skipping the pre-assessment does not prompt', () {
-      expect(resolveGeofenceAction(inside(), outside(), visit(preCompleted: false)),
-          GeofenceAction.none);
+    test('exiting mid-check clears the abandoned visit', () {
+      // The user tapped Start Check but never finished the pre-assessment, so
+      // the stale check-in is dropped and returning to the place prompts again.
+      expect(
+          resolveGeofenceAction(inside(), outside(), visit(preCompleted: false)),
+          GeofenceAction.clearAbandonedVisit);
     });
 
     test('exiting with no active visit does not prompt', () {

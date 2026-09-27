@@ -5,15 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../core/utils/geo.dart';
+import '../data/services/location_tracking_service.dart';
 import '../models/green_space.dart';
 import 'app_providers.dart';
+import 'location_tracking_provider.dart';
 
-/// Geofence monitoring state.
-///
-/// Geofenced areas are the developer-defined `GreenSpace` entries from
-/// [greenSpacesProvider] - each place has its own [GreenSpace.fence] shape
-/// (a radius circle or an arbitrary polygon). This controller streams GPS
-/// fixes and detects when the user enters or exits a geofence.
 class GeofenceState {
   final Position? position;
   final GreenSpace? insideSpace;
@@ -32,75 +28,109 @@ class GeofenceState {
 
 class GeofenceController extends Notifier<GeofenceState> {
   StreamSubscription<Position>? _subscription;
+  late LocationTrackingService _locationService;
+  LocationTrackingLease? _lease;
+  Future<void>? _startFuture;
+  int _lifecycleSerial = 0;
+  bool _disposed = false;
 
   @override
   GeofenceState build() {
-    ref.onDispose(() => _subscription?.cancel());
+    _locationService = ref.read(locationTrackingServiceProvider);
+    ref.onDispose(() {
+      _disposed = true;
+      _lifecycleSerial++;
+      unawaited(_subscription?.cancel());
+      final lease = _lease;
+      _lease = null;
+      if (lease != null) unawaited(_locationService.release(lease));
+    });
     return const GeofenceState();
   }
 
-  Future<void> startMonitoring() async {
-    if (state.monitoring) return;
+  Future<void> startMonitoring() {
+    if (_subscription != null && _lease != null) return Future<void>.value();
+    final active = _startFuture;
+    if (active != null) return active;
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      state = const GeofenceState(permissionDenied: true);
-      return;
-    }
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      state = const GeofenceState(serviceDisabled: true);
-      return;
-    }
-
-    _subscription?.cancel();
-    _subscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 15,
+    final future = _startMonitoring();
+    _startFuture = future;
+    unawaited(
+      future.then<void>(
+        (_) {
+          if (identical(_startFuture, future)) _startFuture = null;
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (identical(_startFuture, future)) _startFuture = null;
+        },
       ),
-    ).listen(
-      _updateInside,
+    );
+    return future;
+  }
+
+  Future<void> _startMonitoring() async {
+    if (_disposed) return;
+    final lifecycle = ++_lifecycleSerial;
+    final acquisition = await _locationService.acquireWithLease();
+    final lease = acquisition.lease;
+    if (_disposed || lifecycle != _lifecycleSerial) {
+      if (lease != null) await _locationService.release(lease);
+      return;
+    }
+    if (acquisition.status != LocationTrackingStatus.started || lease == null) {
+      state = GeofenceState(
+        permissionDenied:
+            acquisition.status == LocationTrackingStatus.permissionDenied,
+        serviceDisabled:
+            acquisition.status == LocationTrackingStatus.serviceDisabled,
+      );
+      return;
+    }
+
+    _lease = lease;
+    late final StreamSubscription<Position> subscription;
+    subscription = _locationService.positions.listen(
+      (position) {
+        if (identical(_subscription, subscription)) _updateInside(position);
+      },
       onError: (Object error, StackTrace stackTrace) {
         debugPrint('EcoWell geofence stream error: $error');
+        if (identical(_subscription, subscription)) {
+          unawaited(stopMonitoring());
+        }
+      },
+      onDone: () {
+        if (identical(_subscription, subscription)) {
+          unawaited(stopMonitoring());
+        }
       },
     );
-
+    _subscription = subscription;
     state = GeofenceState(
       monitoring: true,
       position: state.position,
       insideSpace: state.insideSpace,
     );
 
-    // Grab an immediate fix so "started already inside a fence" triggers the
-    // arrival flow right away instead of waiting for the first stream event.
-    unawaited(_seedFromLastPosition());
-  }
-
-  Future<void> _seedFromLastPosition() async {
-    Position? pos;
-    try {
-      pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-    } catch (_) {
-      pos = await Geolocator.getLastKnownPosition();
-    }
-    if (pos != null) _updateInside(pos);
+    final lastPosition = _locationService.lastPosition;
+    if (lastPosition != null) _updateInside(lastPosition);
   }
 
   Future<void> stopMonitoring() async {
-    await _subscription?.cancel();
+    final lifecycle = ++_lifecycleSerial;
+    _startFuture = null;
+    final subscription = _subscription;
     _subscription = null;
+    final lease = _lease;
+    _lease = null;
+    await subscription?.cancel();
+    if (lease != null) await _locationService.release(lease);
+    if (_disposed || lifecycle != _lifecycleSerial) return;
     state = const GeofenceState();
   }
 
   void _updateInside(Position position) {
+    if (_disposed) return;
     GreenSpace? nearest;
     var minDistance = double.infinity;
     final spaces = ref.read(greenSpacesProvider);
@@ -126,9 +156,6 @@ class GeofenceController extends Notifier<GeofenceState> {
     );
   }
 
-  /// Dev/test hook: feeds a synthetic position through the same detection
-  /// path as a real GPS fix, so enter/exit behavior can be exercised on
-  /// demand (no walking required).
   void debugInjectPosition({
     required double latitude,
     required double longitude,

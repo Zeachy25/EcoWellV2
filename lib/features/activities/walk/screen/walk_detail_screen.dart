@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_radius.dart';
@@ -9,6 +8,7 @@ import '../../../../models/walk_record.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/community_provider.dart';
 import '../widgets/splits_chart.dart';
+import '../widgets/walk_history_map.dart';
 
 /// Detailed view for inspecting historical GPS activity records.
 class WalkDetailScreen extends ConsumerStatefulWidget {
@@ -21,36 +21,6 @@ class WalkDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _WalkDetailScreenState extends ConsumerState<WalkDetailScreen> {
-  GoogleMapController? _mapController;
-
-  LatLngBounds _computeBounds(List<GeoPoint> path) {
-    if (path.isEmpty) {
-      final dest = widget.record.destination;
-      final lat = dest?.latitude ?? 6.95;
-      final lon = dest?.longitude ?? 126.21;
-      return LatLngBounds(
-        southwest: LatLng(lat - 0.005, lon - 0.005),
-        northeast: LatLng(lat + 0.005, lon + 0.005),
-      );
-    }
-    var minLat = path.first.latitude;
-    var maxLat = path.first.latitude;
-    var minLon = path.first.longitude;
-    var maxLon = path.first.longitude;
-
-    for (final p in path) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLon) minLon = p.longitude;
-      if (p.longitude > maxLon) maxLon = p.longitude;
-    }
-
-    return LatLngBounds(
-      southwest: LatLng(minLat - 0.002, minLon - 0.002),
-      northeast: LatLng(maxLat + 0.002, maxLon + 0.002),
-    );
-  }
-
   Future<void> _shareToCommunity() async {
     final authUser = ref.read(authControllerProvider).user;
     final distanceKm =
@@ -93,9 +63,6 @@ class _WalkDetailScreenState extends ConsumerState<WalkDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final distanceKm = widget.record.distanceMeters / 1000;
-    final pathPoints = widget.record.path
-        .map((p) => LatLng(p.latitude, p.longitude))
-        .toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -113,70 +80,10 @@ class _WalkDetailScreenState extends ConsumerState<WalkDetailScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
         children: [
           // 1. Map Route
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            child: SizedBox(
-              height: 240,
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: pathPoints.isNotEmpty
-                      ? pathPoints.first
-                      : const LatLng(6.95, 126.21),
-                  zoom: 14,
-                ),
-                onMapCreated: (c) {
-                  _mapController = c;
-                  if (pathPoints.isNotEmpty) {
-                    Future.delayed(const Duration(milliseconds: 300), () {
-                      _mapController?.animateCamera(
-                        CameraUpdate.newLatLngBounds(
-                          _computeBounds(widget.record.path),
-                          36,
-                        ),
-                      );
-                    });
-                  }
-                },
-                markers: {
-                  if (pathPoints.isNotEmpty) ...[
-                    Marker(
-                      markerId: const MarkerId('start'),
-                      position: pathPoints.first,
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueGreen,
-                      ),
-                      infoWindow: const InfoWindow(title: 'Start'),
-                    ),
-                    Marker(
-                      markerId: const MarkerId('finish'),
-                      position: pathPoints.last,
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                        BitmapDescriptor.hueOrange,
-                      ),
-                      infoWindow: const InfoWindow(title: 'Finish'),
-                    ),
-                  ],
-                },
-                polylines: {
-                  Polyline(
-                    polylineId: const PolylineId('detail-glow'),
-                    points: pathPoints,
-                    color: AppColors.streakOrange.withValues(alpha: 0.3),
-                    width: 8,
-                    jointType: JointType.round,
-                  ),
-                  Polyline(
-                    polylineId: const PolylineId('detail-core'),
-                    points: pathPoints,
-                    color: AppColors.streakOrange,
-                    width: 4,
-                    jointType: JointType.round,
-                  ),
-                },
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-              ),
-            ),
+          WalkHistoryMap(
+            record: widget.record,
+            polylineIdPrefix: 'detail',
+            height: 240,
           ),
           const SizedBox(height: 16),
 

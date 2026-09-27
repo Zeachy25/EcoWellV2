@@ -11,6 +11,7 @@ import '../../models/geo_fence.dart';
 import '../../models/green_space.dart';
 import '../../providers/app_providers.dart';
 import '../../providers/geofence_provider.dart';
+import '../shared/fence_overlay.dart';
 import '../shared/geofence_status_chip.dart';
 
 enum MapLayerMode { topographic, satellite, calmHeatmap }
@@ -135,11 +136,12 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
     return spaces.where((space) => space.fence is CircleFence).map((space) {
       final isInside = space.id == insideSpace?.id;
       final isSelected = space.id == _selectedSpaceId;
-      return Circle(
-        circleId: CircleId('geofence-${space.id}'),
-        center: LatLng(space.latitude, space.longitude),
-        radius: (space.fence as CircleFence).radiusMeters,
-        fillColor: isInside ? const Color(0x6648CAE4) : const Color(0x3390EEB0),
+      return FenceOverlay.circleFor(
+        space,
+        id: 'geofence-${space.id}',
+        fillColor: isInside
+            ? const Color(0x6648CAE4)
+            : const Color(0x3390EEB0),
         strokeColor: isInside
             ? const Color(0xFF48CAE4)
             : isSelected
@@ -148,7 +150,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
         strokeWidth: isInside ? 3 : 2,
         consumeTapEvents: true,
         onTap: () => setState(() => _selectedSpaceId = space.id),
-      );
+      )!;
     }).toSet();
   }
 
@@ -162,15 +164,12 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
     return spaces.where((space) => space.fence is PolygonFence).map((space) {
       final isInside = space.id == insideSpace?.id;
       final isSelected = space.id == _selectedSpaceId;
-      final fence = space.fence as PolygonFence;
-      final vertices = fence.vertices
-          .map((v) => LatLng(v.latitude, v.longitude))
-          .toList();
-      vertices.add(vertices.first);
-      return Polygon(
-        polygonId: PolygonId('geofence-${space.id}'),
-        points: vertices,
-        fillColor: isInside ? const Color(0x6648CAE4) : const Color(0x3390EEB0),
+      return FenceOverlay.polygonFor(
+        space,
+        id: 'geofence-${space.id}',
+        fillColor: isInside
+            ? const Color(0x6648CAE4)
+            : const Color(0x3390EEB0),
         strokeColor: isInside
             ? const Color(0xFF48CAE4)
             : isSelected
@@ -179,7 +178,7 @@ class _ExploreMapScreenState extends ConsumerState<ExploreMapScreen> {
         strokeWidth: isInside ? 3 : 2,
         consumeTapEvents: true,
         onTap: () => setState(() => _selectedSpaceId = space.id),
-      );
+      )!;
     }).toSet();
   }
 

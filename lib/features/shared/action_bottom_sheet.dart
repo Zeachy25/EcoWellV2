@@ -86,13 +86,13 @@ class QuickActionBottomSheet extends StatelessWidget {
           ),
           _buildActionItem(
             context,
-            icon: Icons.psychology_alt_rounded,
-            title: 'AI Wellness Companion',
-            subtitle: 'Chat with EcoWell AI for guided stress relief',
-            color: AppColors.mintGreen,
+            icon: Icons.self_improvement_rounded,
+            title: '5-4-3-2-1 Grounding',
+            subtitle: 'Engage your senses to ground your mind in nature',
+            color: AppColors.jade,
             onTap: () {
               Navigator.pop(context);
-              context.push('/ai-assistant');
+              context.push('/activities/grounding');
             },
           ),
         ],
