@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/streak_provider.dart';
 import '../../providers/visits_provider.dart';
 import '../shared/ecowell_app_bar.dart';
+import '../streak/daily_streak_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -134,15 +135,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
                     'Average Stress Reduction',
                     style: TextStyle(fontSize: Responsive.fontSize(context, 13), fontWeight: FontWeight.w600, color: AppColors.textOnDarkMuted),
                   ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: Responsive.size(context, 10), vertical: Responsive.size(context, 4)),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
-                    ),
-                    child: Text(
-                      '🔥 $streak-Day Streak',
-                      style: TextStyle(fontSize: Responsive.fontSize(context, 11), fontWeight: FontWeight.w800, color: Colors.white),
+                  GestureDetector(
+                    onTap: () => DailyStreakDialog.show(context),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: Responsive.size(context, 10), vertical: Responsive.size(context, 4)),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(Responsive.radius(context, 12)),
+                      ),
+                      child: Text(
+                        '🔥 $streak-Day Streak',
+                        style: TextStyle(fontSize: Responsive.fontSize(context, 11), fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
                     ),
                   ),
                 ],

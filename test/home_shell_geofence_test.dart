@@ -25,18 +25,18 @@ class _TestGeofenceController extends GeofenceController {
 void main() {
   late _TestGeofenceController controller;
   late ProviderContainer container;
-  late LocalStore _store;
+  late LocalStore store;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    _store = LocalStore(await SharedPreferences.getInstance());
+    store = LocalStore(await SharedPreferences.getInstance());
     controller = _TestGeofenceController();
     container = ProviderContainer(
       overrides: [
         geofenceProvider.overrideWith(() => controller),
         // HomeShell renders the draggable mascot, which reads its remembered
         // position from storage on first build.
-        localStoreProvider.overrideWithValue(_store),
+        localStoreProvider.overrideWithValue(store),
       ],
     );
   });

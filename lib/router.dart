@@ -26,6 +26,7 @@ import 'features/notifications/notifications_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/splash/splash_screen.dart';
+import 'features/streak/daily_streak_dialog.dart';
 import 'features/visit/active_visit_screen.dart';
 import 'features/weather/weather_screen.dart';
 import 'providers/auth_provider.dart';
@@ -197,6 +198,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/visit-history',
         builder: (context, state) => const VisitHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/streak',
+        builder: (context, state) => const DailyStreakScreen(),
       ),
     ],
   );

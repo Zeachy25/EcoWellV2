@@ -627,16 +627,6 @@ final seedNotifications = <NotificationItem>[
     actionRoute: '/weather',
   ),
   NotificationItem(
-    id: 'notif-2',
-    title: '🔥 5-Day Streak Active!',
-    description:
-        'You\'ve logged nature wellness visits 5 days in a row! Keep going to earn your Mindfulness Badge.',
-    category: NotificationCategory.reminder,
-    timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-    isRead: false,
-    actionRoute: '/dashboard',
-  ),
-  NotificationItem(
     id: 'notif-3',
     title: '❤️ Rain Heart liked your visit post',
     description:

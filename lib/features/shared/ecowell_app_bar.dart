@@ -79,38 +79,29 @@ class EcoWellAppBar extends ConsumerWidget implements PreferredSizeWidget {
             ],
             const Spacer(),
             if (showUserAvatar && user != null) ...[
-              GestureDetector(
-                onTap: () => context.push('/profile'),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircleAvatar(
-                      radius: avatarRadius,
-                      backgroundColor: AppColors.mintSoft,
-                      child: Text(
-                        user.name.isNotEmpty ? user.name[0].toUpperCase() : 'A',
-                        style: TextStyle(
-                          fontSize: Responsive.fontSize(context, 14),
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.forestDark,
+              Tooltip(
+                message: 'Profile',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => context.push('/profile'),
+                  child: SizedBox(
+                    width: iconBtnSize,
+                    height: iconBtnSize,
+                    child: Center(
+                      child: CircleAvatar(
+                        radius: avatarRadius,
+                        backgroundColor: AppColors.mintSoft,
+                        child: Text(
+                          user.name.isNotEmpty ? user.name[0].toUpperCase() : 'A',
+                          style: TextStyle(
+                            fontSize: Responsive.fontSize(context, 14),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.forestDark,
+                          ),
                         ),
                       ),
                     ),
-                    SizedBox(width: Responsive.size(context, 8)),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: Responsive.size(context, 80)),
-                      child: Text(
-                        user.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: Responsive.fontSize(context, 13),
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               SizedBox(width: Responsive.size(context, 8)),

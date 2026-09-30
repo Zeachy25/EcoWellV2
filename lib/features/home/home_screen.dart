@@ -12,6 +12,7 @@ import '../shared/ecowell_app_bar.dart';
 import '../shared/post_card.dart';
 import '../shared/weather_hero_card.dart';
 import '../shared/who_to_follow_card.dart';
+import '../streak/daily_streak_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +23,16 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        DailyStreakDialog.checkAndShowDaily(context, ref);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -330,75 +341,78 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildStreakBanner(BuildContext context, int streak) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: Responsive.size(context, 16),
-        vertical: Responsive.size(context, 14),
-      ),
-      decoration: BoxDecoration(
-        gradient: AppColors.streakGradient,
-        borderRadius: BorderRadius.circular(Responsive.radius(context, 16)),
-        boxShadow: AppShadows.buttonOrange,
-      ),
-      child: Row(
-        children: [
-          // Fire icon
-          Container(
-            padding: EdgeInsets.all(Responsive.size(context, 8)),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.local_fire_department, color: Colors.white, size: Responsive.size(context, 28)),
-          ),
-          SizedBox(width: Responsive.size(context, 12)),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'YOUR STREAK • $streak ${streak == 1 ? 'DAY' : 'DAYS'}',
-                  style: TextStyle(
-                    fontSize: Responsive.fontSize(context, 10),
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.5,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(height: Responsive.size(context, 2)),
-                Text(
-                  'Start your streak by visiting nature',
-                  style: TextStyle(
-                    fontSize: Responsive.fontSize(context, 12),
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => context.push('/assessment?mode=pre&spaceId=gs-001'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppColors.streakCoral,
-              padding: EdgeInsets.symmetric(
-                horizontal: Responsive.size(context, 14),
-                vertical: Responsive.size(context, 10),
+    return GestureDetector(
+      onTap: () => DailyStreakDialog.show(context),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(
+          horizontal: Responsive.size(context, 16),
+          vertical: Responsive.size(context, 14),
+        ),
+        decoration: BoxDecoration(
+          gradient: AppColors.streakGradient,
+          borderRadius: BorderRadius.circular(Responsive.radius(context, 16)),
+          boxShadow: AppShadows.buttonOrange,
+        ),
+        child: Row(
+          children: [
+            // Fire icon
+            Container(
+              padding: EdgeInsets.all(Responsive.size(context, 8)),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
               ),
-              minimumSize: Size.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(Responsive.radius(context, 20)),
+              child: Icon(Icons.local_fire_department, color: Colors.white, size: Responsive.size(context, 28)),
+            ),
+            SizedBox(width: Responsive.size(context, 12)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'YOUR STREAK • $streak ${streak == 1 ? 'DAY' : 'DAYS'}',
+                    style: TextStyle(
+                      fontSize: Responsive.fontSize(context, 10),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(height: Responsive.size(context, 2)),
+                  Text(
+                    'Start your streak by visiting nature',
+                    style: TextStyle(
+                      fontSize: Responsive.fontSize(context, 12),
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-              elevation: 0,
             ),
-            child: Text(
-              'Start now',
-              style: TextStyle(fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.w800),
+            ElevatedButton(
+              onPressed: () => DailyStreakDialog.show(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.streakCoral,
+                padding: EdgeInsets.symmetric(
+                  horizontal: Responsive.size(context, 14),
+                  vertical: Responsive.size(context, 10),
+                ),
+                minimumSize: Size.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(Responsive.radius(context, 20)),
+                ),
+                elevation: 0,
+              ),
+              child: Text(
+                'View',
+                style: TextStyle(fontSize: Responsive.fontSize(context, 12), fontWeight: FontWeight.w800),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

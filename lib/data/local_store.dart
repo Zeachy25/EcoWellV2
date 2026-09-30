@@ -87,4 +87,12 @@ class LocalStore {
     await _prefs.setDouble(_mascotXKey, position.dx.clamp(0.0, 1.0));
     await _prefs.setDouble(_mascotYKey, position.dy.clamp(0.0, 1.0));
   }
+
+  static const _lastStreakDateKey = 'ecowell_last_streak_celebration_date_v1';
+
+  String? get lastStreakCelebrationDate => _prefs.getString(_lastStreakDateKey);
+
+  Future<void> setLastStreakCelebrationDate(String dateIso) async {
+    await _prefs.setString(_lastStreakDateKey, dateIso);
+  }
 }
